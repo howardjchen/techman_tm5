@@ -24,6 +24,7 @@
 
 #include "tm_reflexxes/include/tm_reflexxes/tm_reflexxes.h"
 #include "tm_kinematics/include/tm_kinematics/tm_kin.h"
+#include <Eigen/Geometry> 
 
 
 //*************************************************************************
@@ -34,11 +35,56 @@
 #define DEG2RAD 0.01745329252
 #define RAD2DEG 57.29577951
 
-#define MAX_VELOCITY 1.0
-#define MAX_ACC 0.0375*40 // 0.0375 : acc in 25ms
-
 using namespace std;
 
+bool GetQfromInverseKinematics( std::vector<double> CartesianPosition, double *q_inv)
+{
+    bool move = true;
+    Eigen::Matrix<float,4,4> T_;
+    Eigen::AngleAxisf rollAngle (CartesianPosition[3], Eigen::Vector3f::UnitZ());
+    Eigen::AngleAxisf yawAngle  (CartesianPosition[4], Eigen::Vector3f::UnitY());
+    Eigen::AngleAxisf pitchAngle(CartesianPosition[5], Eigen::Vector3f::UnitX());
+    Eigen::Quaternion<float> q = rollAngle * yawAngle * pitchAngle;
+    Eigen::Matrix<float,3,3> RotationMatrix = q.matrix();
+    double *T = new double[16];
+
+    
+    T_ <<   0., 0., 0., CartesianPosition[0],
+            0., 0., 0., CartesianPosition[1],
+            0., 0., 0., CartesianPosition[2],
+            0., 0., 0., 1.;
+
+    for (int i = 0; i < 3; ++i)
+    {
+        for (int j = 0; j < 3; ++j)
+        {
+            T_(i,j) = RotationMatrix(i,j);
+        }
+    }
+
+    tm_jacobian::Matrix2DoubleArray(T_,T);
+    cout << ">>>> T " << endl;
+    tm_jacobian::printMatrix(T,4,16);
+
+    int num_sol =  tm_kinematics::inverse(T, q_inv);
+
+    for (int i = 0; i < 6; ++i)
+    {
+        if(abs(*q_inv) > 1.57)
+            move = false;
+    }
+
+    delete [] T;
+    return move;
+}
+
+
+//**************************************************************************************
+// point1 : (0.426, -0.336, 0.580), [ -0.5531  0.4107  1.0725  -1.4832  2.1239  -0.0000]
+// point2 : (0.426, -0.122, 0.681), [  0.0006  0.0516  1.1879  -1.2394  1.5702   0     ] 
+// point3 : (0.426, 0.092, 0.580),  [0.6727 -0.0318 1.6024 -1.5706 0.8981 0]
+// point4 : (0.426, -0.122, 0.479), [0.0006 0.0509 1.8490 -1.8999 1.5702 0]
+//**************************************************************************************
 int main(int argc, char **argv)
 {
     bool run_succeed = true;
@@ -53,32 +99,12 @@ int main(int argc, char **argv)
     q_ref = new double [6];
     T     = new double [16];
 
-    double *test = new double [10];
+    std::vector<double> CartesianPosition_1 = {0.426, -0.335, 0.58, 90*DEG2RAD, 0, 90*DEG2RAD};
+    std::vector<double> CartesianPosition_2 = {0.425, -0.122, 0.681, 90*DEG2RAD, 0, 90*DEG2RAD};
+    std::vector<double> CartesianPosition_3 = {0.426, 0.092, 0.580, 90*DEG2RAD, 0, 90*DEG2RAD};
+    std::vector<double> CartesianPosition_4 = {0.426, -0.122, 0.479, 90*DEG2RAD, 0, 90*DEG2RAD};
 
-    double position1[3] = {0.426, -0.335, 0.580};
-    double position2[3] = {0.425, -0.122, 0.681};
-    double position3[3] = {0.426, 0.092, 0.580};
-    double position4[3] = {0.426, -0.122, 0.479};
 
-    Eigen::Matrix4f T_;
-    T_ <<  -0.,     0.,     1.,     0., 
-            1.,     0.,     0.,     0., 
-            0.,     1.,     0.,     0., 
-            0.,     0.,     0.,     1.; 
-
-    //***********************
-    // point1 : (0.426, -0.336, 0.580), [ -0.5531  0.4107  1.0725  -1.4832  2.1239  -0.0000]
-    // point2 : (0.426, -0.122, 0.681), [  0.0006  0.0516  1.1879  -1.2394  1.5702   0     ] [0.0006 1.2025 -1.1879 -0.0147 1.5702 0]
-    // point3 : (0.426, 0.092, 0.580),  [0.6727 -0.0318 1.6024 -1.5706 0.8981 0]
-    // point4 : (0.426, -0.122, 0.479), [0.0006 0.0509 1.8490 -1.8999 1.5702 0]
-    //***********************
-
-    q_ref[0] = 0;
-    q_ref[1] = 0;
-    q_ref[2] = 1.5708;
-    q_ref[3] = -1.5708;
-    q_ref[4] = 1.5708;
-    q_ref[5] = 0;
 
     for (int i = 0; i < NUMBER_OF_DOFS; ++i)
     {
@@ -91,59 +117,26 @@ int main(int argc, char **argv)
         IP_velocity->CurrentAccelerationVector->VecData[i] = 0.0;
     }
 
-    for (int j = 0; j < 4; ++j)
+
+    for (int j = 0; j < 1; ++j)
     {
-        if(j == 0)
+
+        if(GetQfromInverseKinematics(CartesianPosition_1, q_inv))
         {
-            T_(0,3) = position1[0];
-            T_(1,3) = position1[1];
-            T_(2,3) = position1[2];
-        }
-        else if(j == 1)
-        {
-            T_(0,3) = position2[0];
-            T_(1,3) = position2[1];
-            T_(2,3) = position2[2];
-        }
-        else if(j == 2)
-        {
-            T_(0,3) = position3[0];
-            T_(1,3) = position3[1];
-            T_(2,3) = position3[2];
-        }
-        else if(j == 3)
-        {            
-            T_(0,3) = position4[0];
-            T_(1,3) = position4[1];
-            T_(2,3) = position4[2];
+            printf("inverse q_inv \n");
+            tm_jacobian::printMatrix(q_inv, 6, 60);
+
+            for (int i = 0; i < NUMBER_OF_DOFS; ++i)
+            {
+                TargetPosition[i] = q_inv[i];
+                //q_ref[i] = q_inv[i];
+            }
+            
+            TargetVelocity = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+            //run_succeed = tm_reflexxes::ReflexxesPositionRun_sim(*IP_position, TargetPosition, TargetVelocity, 1);
         }
         else
-        {
-            T_(0,3) = position4[0];
-            T_(1,3) = position4[1];
-            T_(2,3) = position4[2];
-        }
-
-
-        tm_jacobian::Matrix2DoubleArray(T_,T);
-        cout << ">>>> T " << endl;
-        tm_jacobian::printMatrix(T,4,16);
-
-        int num_sol =  tm_kinematics::inverse(T, q_inv, q_ref);
-
-        printf("inverse q_inv with %d solutions in rad, %d\n",num_sol,j );
-        tm_jacobian::printMatrix(q_inv, 6, 60);
-
-
-        for (int i = 0; i < NUMBER_OF_DOFS; ++i)
-        {
-            TargetPosition[i] = q_inv[i];
-            q_ref[i] = q_inv[i];
-        }
-        
-        TargetVelocity = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-        run_succeed = tm_reflexxes::ReflexxesPositionRun_sim(*IP_position, TargetPosition, TargetVelocity, SynchronousTime);
-    
+            break;
     }
 
 /*
@@ -167,7 +160,7 @@ int main(int argc, char **argv)
         else
             break;
     }
-*/
+
     
     /*
     while(run_succeed)

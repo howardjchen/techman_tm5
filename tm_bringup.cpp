@@ -33,9 +33,6 @@
 #define DEG2RAD 0.01745329252
 #define RAD2DEG 57.29577951
 
-#define MAX_VELOCITY 1.0
-#define MAX_ACC 0.0375*40 // 0.0375 : acc in 25ms
-
 using namespace std;
 
 
@@ -248,7 +245,7 @@ using namespace std;
 void ReflexxesStart(TmDriver& TM5)
 {
     bool run_succeed = true;
-    double SynchronousTime = 3.0;
+    double SynchronousTime = 5.0;
     std::vector<double> TargetPosition, TargetVelocity, CurrentPosition;
 
     RMLPositionInputParameters  *IP_position = new RMLPositionInputParameters(NUMBER_OF_DOFS);
@@ -266,11 +263,12 @@ void ReflexxesStart(TmDriver& TM5)
         IP_velocity->CurrentVelocityVector->VecData[i] = 0.0;
         IP_velocity->CurrentAccelerationVector->VecData[i] = 0.0;
     }
-
+/*
     while(run_succeed)
     {
         if (run_succeed)
         {
+            printf("3 -> 1 \n");
             TargetPosition = {-0.5531,  0.4107,  1.0725,  -1.4832,  2.1239,  -0.0000};
             TargetVelocity = {0.0, 0.0, 0.0, 0.0, 0.0};
             run_succeed = tm_reflexxes::ReflexxesPositionRun(TM5, *IP_position, TargetPosition, TargetVelocity, SynchronousTime);
@@ -280,6 +278,7 @@ void ReflexxesStart(TmDriver& TM5)
 
         if (run_succeed)
         {
+            printf("1 -> 2 \n");
             TargetPosition = {0.0006,  0.0516,  1.1879,  -1.2394,  1.5702,   0};
             TargetVelocity = {0.0, 0.0, 0.0, 0.0, 0.0};
             run_succeed = tm_reflexxes::ReflexxesPositionRun(TM5, *IP_position, TargetPosition, TargetVelocity, SynchronousTime);
@@ -289,6 +288,7 @@ void ReflexxesStart(TmDriver& TM5)
 
         if (run_succeed)
         {
+            printf("1 -> 3 \n");
             TargetPosition = {0.6727, -0.0318, 1.6024, -1.5706, 0.8981, 0};
             TargetVelocity = {0.0, 0.0, 0.0, 0.0, 0.0};
             run_succeed = tm_reflexxes::ReflexxesPositionRun(TM5, *IP_position, TargetPosition, TargetVelocity, SynchronousTime);
@@ -298,6 +298,7 @@ void ReflexxesStart(TmDriver& TM5)
 
         if (run_succeed)
         {
+            printf("3 -> 4 \n");
             TargetPosition = {0.0006, 0.0509, 1.8490, -1.8999, 1.5702, 0};
             TargetVelocity = {0.0, 0.0, 0.0, 0.0, 0.0};
             run_succeed = tm_reflexxes::ReflexxesPositionRun(TM5, *IP_position, TargetPosition, TargetVelocity, SynchronousTime);
@@ -305,26 +306,16 @@ void ReflexxesStart(TmDriver& TM5)
         else
             break;
     }
-
-    /*
-    while(run_succeed)
-    {
-        if(run_succeed)
-        {
-            TargetVelocity = {0,0,0,0,1.0,0};
-            run_succeed = tm_reflexxes::ReflexxesVelocityRun(TM5, *IP_velocity, TargetVelocity, SynchronousTime);
-        }
-        else
-            break;
-        if (run_succeed)
-        {
-            TargetVelocity = {0,0,0,0,-1.0,0};
-            run_succeed = tm_reflexxes::ReflexxesVelocityRun(TM5, *IP_velocity, TargetVelocity, SynchronousTime);
-        }
-        else
-            break;
-    }
 */
+    
+    TargetVelocity = {0.0825, -0.1122, 0.1597, -0.0475, -0.0825, 0}; //linear speed=[0 0.0428 0],w=0;
+    tm_reflexxes::ReflexxesVelocityRun(TM5, *IP_velocity, TargetVelocity, 2);
+
+    getchar();
+    
+    print_info("Smooth Stop Activate...");
+    tm_reflexxes::ReflexxesSmoothStop(TM5,*IP_velocity, 0.5);
+
 
 
     delete IP_position;
@@ -394,12 +385,19 @@ int main(int argc, char **argv)
             TmRobot.setMoveJabs(vec1, blend);
             print_info("Back to home");
         }
-        else if(strncmp(cstr, "ready", 4) == 0)
+        else if(strncmp(cstr, "ready", 5) == 0)
         {
             double blend = 0;
             std::vector<double> vec1 = {0,0,1.5705,-1.5705,1.5705,0};
             TmRobot.setMoveJabs(vec1, blend);
-            print_info("Back to home");
+            print_info("Back to ready position");
+        }
+        else if(strncmp(cstr, "1", 1) == 0)
+        {
+            double blend = 0;
+            std::vector<double> vec1 = {-0.5531,  0.4107,  1.0725,  -1.4832,  2.1239,  0.0000};
+            TmRobot.setMoveJabs(vec1, blend);
+            print_info("Back to position 1");
         }
         else if (strncmp(cstr, "data", 4) == 0)
         {
