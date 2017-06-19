@@ -37,6 +37,44 @@
 
 using namespace std;
 
+bool CheckJointLimit(double *q)
+{
+    bool valid = true;
+
+    if(abs(q[0]) > 270*DEG2RAD)
+    {
+        printf("[WARN] the 1th joint : %lf\n",q[0] );
+        valid = false;
+    }
+    else if(abs(q[1]) > 1.57)
+    {
+        printf("[WARN] the 2th joint : %lf\n",q[1] );
+        valid = false;
+    }
+    else if(abs(q[2]) > 155*DEG2RAD)
+    {
+        printf("[WARN] the 3th joint : %lf\n",q[2] );
+        valid = false;
+    }
+    else if(abs(q[3]) > 180*DEG2RAD)
+    {
+        printf("[WARN] the 4th joint : %lf\n",q[3] );
+        valid = false;
+    }
+    else if(abs(q[4]) > 180*DEG2RAD)
+    {
+        printf("[WARN] the 5th joint : %lf\n",q[4] );
+        valid = false;
+    }
+    else if(abs(q[5]) > 270*DEG2RAD)
+    {
+        printf("[WARN] the 6th joint : %lf\n",q[5] );
+        valid = false;
+    }
+
+    return valid;
+}
+
 bool GetQfromInverseKinematics( std::vector<double> CartesianPosition, double *q_inv)
 {
     bool move = true;
@@ -68,11 +106,7 @@ bool GetQfromInverseKinematics( std::vector<double> CartesianPosition, double *q
 
     int num_sol =  tm_kinematics::inverse(T, q_inv);
 
-    for (int i = 0; i < 6; ++i)
-    {
-        if(abs(*q_inv) > 1.57)
-            move = false;
-    }
+    move = CheckJointLimit(q_inv);
 
     delete [] T;
     return move;
@@ -80,10 +114,10 @@ bool GetQfromInverseKinematics( std::vector<double> CartesianPosition, double *q
 
 
 //**************************************************************************************
-// point1 : (0.426, -0.336, 0.580), [ -0.5531  0.4107  1.0725  -1.4832  2.1239  -0.0000]
+// point1 : (0.426, -0.336, 0.580), [ -0.5531  0.4107  1.0725  -1.4832  2.1239   0     ]
 // point2 : (0.426, -0.122, 0.681), [  0.0006  0.0516  1.1879  -1.2394  1.5702   0     ] 
-// point3 : (0.426, 0.092, 0.580),  [0.6727 -0.0318 1.6024 -1.5706 0.8981 0]
-// point4 : (0.426, -0.122, 0.479), [0.0006 0.0509 1.8490 -1.8999 1.5702 0]
+// point3 : (0.426, 0.092, 0.580),  [  0.6727 -0.0318  1.6024  -1.5706  0.8981   0     ]
+// point4 : (0.426, -0.122, 0.479), [  0.0006  0.0509  1.8490  -1.8999  1.5702   0     ]
 //**************************************************************************************
 int main(int argc, char **argv)
 {
@@ -104,8 +138,6 @@ int main(int argc, char **argv)
     std::vector<double> CartesianPosition_3 = {0.426, 0.092, 0.580, 90*DEG2RAD, 0, 90*DEG2RAD};
     std::vector<double> CartesianPosition_4 = {0.426, -0.122, 0.479, 90*DEG2RAD, 0, 90*DEG2RAD};
 
-
-
     for (int i = 0; i < NUMBER_OF_DOFS; ++i)
     {
         IP_position->CurrentPositionVector->VecData[i] = 0.0;
@@ -117,27 +149,22 @@ int main(int argc, char **argv)
         IP_velocity->CurrentAccelerationVector->VecData[i] = 0.0;
     }
 
-
-    for (int j = 0; j < 1; ++j)
+    if(GetQfromInverseKinematics(CartesianPosition_1, q_inv))
     {
+        printf("inverse q_inv \n");
+        tm_jacobian::printMatrix(q_inv, 6, 60);
 
-        if(GetQfromInverseKinematics(CartesianPosition_1, q_inv))
+        for (int i = 0; i < NUMBER_OF_DOFS; ++i)
         {
-            printf("inverse q_inv \n");
-            tm_jacobian::printMatrix(q_inv, 6, 60);
-
-            for (int i = 0; i < NUMBER_OF_DOFS; ++i)
-            {
-                TargetPosition[i] = q_inv[i];
-                //q_ref[i] = q_inv[i];
-            }
-            
-            TargetVelocity = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-            //run_succeed = tm_reflexxes::ReflexxesPositionRun_sim(*IP_position, TargetPosition, TargetVelocity, 1);
+            TargetPosition[i] = q_inv[i];
+            //q_ref[i] = q_inv[i];
         }
-        else
-            break;
+        
+        TargetVelocity = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+        //run_succeed = tm_reflexxes::ReflexxesPositionRun_sim(*IP_position, TargetPosition, TargetVelocity, 1);
     }
+    else
+        printf("joint angle out of limit\n");
 
 /*
     while(run_succeed)
