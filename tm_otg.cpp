@@ -75,6 +75,30 @@ bool CheckJointLimit(double *q)
     return valid;
 }
 
+bool GetQdfromInverseJacobian(std::vector<double> CurrentPosition, std::vector<double> EFF_Velocity, double *qd)
+{
+    bool valid = true;
+    Eigen::Matrix<float, 6, 1> home,q;
+    home << 0, -PI*0.5, 0, PI*0.5, 0, 0;
+    Eigen::Matrix<float,6,1> effspd, jointspd;
+
+    home   << 0, -PI*0.5, 0, PI*0.5, 0, 0;
+    effspd << EFF_Velocity[0], EFF_Velocity[1], EFF_Velocity[2], EFF_Velocity[3], EFF_Velocity[4], EFF_Velocity[5];
+    q      << CurrentPosition[0], CurrentPosition[1], CurrentPosition[2], CurrentPosition[3], CurrentPosition[4], CurrentPosition[5];
+    q += home;
+
+    Eigen::Matrix<float, 6, 6> Inverse_Jacobian = tm_jacobian::Inverse_Jacobian(q);
+    jointspd = Inverse_Jacobian*effspd;
+    cout << ">>>> Inverse jacobian" << endl;
+    tm_jacobian::printMatrix(Inverse_Jacobian);
+
+    cout << ">>>> joint speed" << endl;
+    tm_jacobian::printMatrix(jointspd);
+
+}
+
+
+
 bool GetQfromInverseKinematics( std::vector<double> CartesianPosition, double *q_inv)
 {
     bool move = true;
