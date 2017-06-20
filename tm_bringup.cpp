@@ -323,6 +323,92 @@ void ReflexxesStart(TmDriver& TM5)
 }
 
 
+void ComplianceTeach(TmDriver& TM5)
+{
+    bool run_succeed = true;
+    double SynchronousTime = 5.0;
+    std::vector<double> TargetPosition, TargetVelocity, CurrentPosition;
+    std::vector<double> T_positioin_1, T_positioin_2, T_positioin_3;
+    T_positioin_1 = {0,0,0,0,0,0};
+    T_positioin_2 = {0,0,0,0,0,0};
+    T_positioin_3 = {0,0,0,0,0,0};
+
+    RMLPositionInputParameters  *IP_position = new RMLPositionInputParameters(NUMBER_OF_DOFS);
+    RMLVelocityInputParameters  *IP_velocity = new RMLVelocityInputParameters(NUMBER_OF_DOFS);
+
+
+    getchar();
+    TM5.interface->stateRT->getQAct(T_positioin_1);
+    for (int i = 0; i < 6; ++i)
+    {
+        printf("%10.4lf \n", T_positioin_1[i]);
+    }
+
+
+    getchar();
+    TM5.interface->stateRT->getQAct(T_positioin_2);
+    for (int i = 0; i < 6; ++i)
+    {
+        printf("%10.4lf \n", T_positioin_2[i]);
+    }
+
+    getchar();
+    TM5.interface->stateRT->getQAct(T_positioin_3);
+    for (int i = 0; i < 6; ++i)
+    {
+        printf("%10.4lf \n", T_positioin_3[i]);
+    }
+
+
+
+    getchar();
+    cout << "motion start" << endl;
+    TM5.interface->stateRT->getQAct(CurrentPosition);
+    TM5.setJointSpdModeON();
+    cout << "joint speed mode turn on" << endl;
+
+    for (int i = 0; i < NUMBER_OF_DOFS; ++i)
+    {
+        IP_position->CurrentPositionVector->VecData[i] = CurrentPosition[i];
+        IP_position->CurrentVelocityVector->VecData[i] = 0.0;
+        IP_position->CurrentAccelerationVector->VecData[i] = 0.0;
+
+        IP_velocity->CurrentPositionVector->VecData[i] = CurrentPosition[i];
+        IP_velocity->CurrentVelocityVector->VecData[i] = 0.0;
+        IP_velocity->CurrentAccelerationVector->VecData[i] = 0.0;
+    }
+
+    while(run_succeed)
+    {
+        if (run_succeed)
+        {
+            TargetVelocity = {0.0, 0.0, 0.0, 0.0, 0.0};
+            run_succeed = tm_reflexxes::ReflexxesPositionRun(TM5, *IP_position, T_positioin_1, TargetVelocity, SynchronousTime);
+        }
+        else
+            break;
+
+        if (run_succeed)
+        {
+            TargetVelocity = {0.0, 0.0, 0.0, 0.0, 0.0};
+            run_succeed = tm_reflexxes::ReflexxesPositionRun(TM5, *IP_position, T_positioin_2, TargetVelocity, SynchronousTime);
+        }
+        else
+            break;
+
+        if (run_succeed)
+        {
+            TargetVelocity = {0.0, 0.0, 0.0, 0.0, 0.0};
+            run_succeed = tm_reflexxes::ReflexxesPositionRun(TM5, *IP_position, T_positioin_3, TargetVelocity, SynchronousTime);
+        }
+        else
+            break;
+    }
+
+    delete IP_position;
+    delete IP_velocity;
+}
+
 int main(int argc, char **argv)
 {
 
@@ -436,10 +522,10 @@ int main(int argc, char **argv)
         }        
         else if (strncmp(cstr, "gotest", 6) == 0)
         {
-            TmRobot.setJointSpdModeON();
-            print_info("joint velocity control mode ON...");
+            //print_info("joint velocity control mode ON...");
             
-            ReflexxesStart(TmRobot);
+            //ReflexxesStart(TmRobot);
+            ComplianceTeach(TmRobot);
 
             TmRobot.setJointSpdModeoOFF();
             print_info("joint vlocity control mode OFF...");
