@@ -71,13 +71,35 @@ bool CheckJointLimit(double *q)
         printf("[WARN] the 6th joint : %lf\n",q[5] );
         valid = false;
     }
+    else
+        valid = true;
+
+    return valid;
+}
+
+bool CheckVelocityLimit(double *qd)
+{
+    bool valid = true;
+
+    if(abs(qd[0]) > 180*DEG2RAD || abs(qd[1]) > 180*DEG2RAD || abs(qd[2]) > 180*DEG2RAD)
+    {
+        printf("[WARN] the 1th~3th joint : %10.4lf %10.4lf %10.4lf\n",qd[0],qd[3],qd[2] );
+        valid = false;
+    }
+    else if(abs(qd[3]) > 225*DEG2RAD || abs(qd[4]) > 225*DEG2RAD || abs(qd[5]) > 225*DEG2RAD)
+    {
+        printf("[WARN] the 4th~6th joint : %10.4lf %10.4lf %10.4lf\n",qd[3],qd[4],qd[5] );
+        valid = false;
+    }
+    else
+        valid = true;
 
     return valid;
 }
 
 bool GetQdfromInverseJacobian(std::vector<double> CurrentPosition, std::vector<double> EFF_Velocity, double *qd)
 {
-    bool valid = true;
+
     Eigen::Matrix<float, 6, 1> home,q;
     home << 0, -PI*0.5, 0, PI*0.5, 0, 0;
     Eigen::Matrix<float,6,1> effspd, jointspd;
@@ -93,15 +115,16 @@ bool GetQdfromInverseJacobian(std::vector<double> CurrentPosition, std::vector<d
     tm_jacobian::printMatrix(Inverse_Jacobian);
 
     cout << ">>>> joint speed" << endl;
-    tm_jacobian::printMatrix(jointspd);
+    tm_jacobian::Matrix2DoubleArray(jointspd,qd);
+    tm_jacobian::printMatrix(qd,1,6);
 
+    return CheckVelocityLimit(qd);
 }
 
 
 
 bool GetQfromInverseKinematics( std::vector<double> CartesianPosition, double *q_inv)
 {
-    bool move = true;
     Eigen::Matrix<float,4,4> T_;
     Eigen::AngleAxisf rollAngle (CartesianPosition[3], Eigen::Vector3f::UnitZ());
     Eigen::AngleAxisf yawAngle  (CartesianPosition[4], Eigen::Vector3f::UnitY());
@@ -130,10 +153,8 @@ bool GetQfromInverseKinematics( std::vector<double> CartesianPosition, double *q
 
     int num_sol =  tm_kinematics::inverse(T, q_inv);
 
-    move = CheckJointLimit(q_inv);
-
     delete [] T;
-    return move;
+    return CheckJointLimit(q_inv);
 }
 
 
@@ -152,15 +173,19 @@ int main(int argc, char **argv)
     RMLPositionInputParameters  *IP_position = new RMLPositionInputParameters(NUMBER_OF_DOFS);
     RMLVelocityInputParameters  *IP_velocity = new RMLVelocityInputParameters(NUMBER_OF_DOFS);
 
-    double *T, *q_inv, *q_ref;
+    double *T, *q_inv, *q_ref, *qd;
     q_inv = new double [60];
     q_ref = new double [6];
+    qd    = new double [6];
     T     = new double [16];
 
     std::vector<double> CartesianPosition_1 = {0.426, -0.335, 0.58, 90*DEG2RAD, 0, 90*DEG2RAD};
     std::vector<double> CartesianPosition_2 = {0.425, -0.122, 0.681, 90*DEG2RAD, 0, 90*DEG2RAD};
     std::vector<double> CartesianPosition_3 = {0.426, 0.092, 0.580, 90*DEG2RAD, 0, 90*DEG2RAD};
     std::vector<double> CartesianPosition_4 = {0.426, -0.122, 0.479, 90*DEG2RAD, 0, 90*DEG2RAD};
+
+    CurrentPosition = {0, 0, 1.57, -1.57, 1.57, 0};
+    std::vector<double>effspd = {0,0.2378,0,0,0,0};
 
     for (int i = 0; i < NUMBER_OF_DOFS; ++i)
     {
@@ -172,7 +197,7 @@ int main(int argc, char **argv)
         IP_velocity->CurrentVelocityVector->VecData[i] = 0.0;
         IP_velocity->CurrentAccelerationVector->VecData[i] = 0.0;
     }
-
+/*
     if(GetQfromInverseKinematics(CartesianPosition_1, q_inv))
     {
         printf("inverse q_inv \n");
@@ -189,6 +214,8 @@ int main(int argc, char **argv)
     }
     else
         printf("joint angle out of limit\n");
+*/
+    GetQdfromInverseJacobian(CurrentPosition,effspd,qd);
 
 /*
     while(run_succeed)
