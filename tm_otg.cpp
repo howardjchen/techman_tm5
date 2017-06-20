@@ -26,7 +26,6 @@
 #include "tm_kinematics/include/tm_kinematics/tm_kin.h"
 #include <Eigen/Geometry> 
 
-
 //*************************************************************************
 // defines
 
@@ -77,7 +76,7 @@ bool CheckJointLimit(double *q)
     return valid;
 }
 
-bool CheckVelocityLimit(double *qd)
+bool CheckVelocityLimit(std::vector<double> qd)
 {
     bool valid = true;
 
@@ -97,12 +96,12 @@ bool CheckVelocityLimit(double *qd)
     return valid;
 }
 
-bool GetQdfromInverseJacobian(std::vector<double> CurrentPosition, std::vector<double> EFF_Velocity, double *qd)
+bool GetQdfromInverseJacobian(std::vector<double> CurrentPosition, std::vector<double> EFF_Velocity, std::vector<double> &qd)
 {
 
     Eigen::Matrix<float, 6, 1> home,q;
     home << 0, -PI*0.5, 0, PI*0.5, 0, 0;
-    Eigen::Matrix<float,6,1> effspd, jointspd;
+    Eigen::Matrix<float,6,1> effspd,jointspd;
 
     home   << 0, -PI*0.5, 0, PI*0.5, 0, 0;
     effspd << EFF_Velocity[0], EFF_Velocity[1], EFF_Velocity[2], EFF_Velocity[3], EFF_Velocity[4], EFF_Velocity[5];
@@ -115,8 +114,7 @@ bool GetQdfromInverseJacobian(std::vector<double> CurrentPosition, std::vector<d
     tm_jacobian::printMatrix(Inverse_Jacobian);
 
     cout << ">>>> joint speed" << endl;
-    tm_jacobian::Matrix2DoubleArray(jointspd,qd);
-    tm_jacobian::printMatrix(qd,1,6);
+    tm_jacobian::Matrix2DoubleVector(jointspd,qd);
 
     return CheckVelocityLimit(qd);
 }
@@ -168,15 +166,14 @@ int main(int argc, char **argv)
 {
     bool run_succeed = true;
     double SynchronousTime = 2.0;
-    std::vector<double> TargetPosition(6), TargetVelocity(6), CurrentPosition(6);
+    std::vector<double> TargetPosition(6), TargetVelocity(6), CurrentPosition(6), JointVelocity(6);
 
     RMLPositionInputParameters  *IP_position = new RMLPositionInputParameters(NUMBER_OF_DOFS);
     RMLVelocityInputParameters  *IP_velocity = new RMLVelocityInputParameters(NUMBER_OF_DOFS);
 
-    double *T, *q_inv, *q_ref, *qd;
+    double *T, *q_inv, *q_ref;
     q_inv = new double [60];
     q_ref = new double [6];
-    qd    = new double [6];
     T     = new double [16];
 
     std::vector<double> CartesianPosition_1 = {0.426, -0.335, 0.58, 90*DEG2RAD, 0, 90*DEG2RAD};
@@ -215,7 +212,8 @@ int main(int argc, char **argv)
     else
         printf("joint angle out of limit\n");
 */
-    GetQdfromInverseJacobian(CurrentPosition,effspd,qd);
+    if(GetQdfromInverseJacobian(CurrentPosition,effspd,JointVelocity))
+        tm_jacobian::printVector(JointVelocity);
 
 /*
     while(run_succeed)
