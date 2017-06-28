@@ -244,6 +244,9 @@ using namespace std;
 
 void ReflexxesStart(TmDriver& TM5)
 {
+    TM5.setJointSpdModeON();
+    print_info("joint velocity control mode ON...");
+    
     bool run_succeed = true;
     double SynchronousTime = 5.0;
     std::vector<double> TargetPosition, TargetVelocity, CurrentPosition;
@@ -263,7 +266,7 @@ void ReflexxesStart(TmDriver& TM5)
         IP_velocity->CurrentVelocityVector->VecData[i] = 0.0;
         IP_velocity->CurrentAccelerationVector->VecData[i] = 0.0;
     }
-/*
+
     while(run_succeed)
     {
         if (run_succeed)
@@ -306,15 +309,15 @@ void ReflexxesStart(TmDriver& TM5)
         else
             break;
     }
-*/
-    
-    TargetVelocity = {0.0825, -0.1122, 0.1597, -0.0475, -0.0825, 0}; //linear speed=[0 0.0428 0],w=0;
-    tm_reflexxes::ReflexxesVelocityRun(TM5, *IP_velocity, TargetVelocity, 2);
 
-    getchar();
     
-    print_info("Smooth Stop Activate...");
-    tm_reflexxes::ReflexxesSmoothStop(TM5,*IP_velocity, 0.5);
+    //TargetVelocity = {0.0825, -0.1122, 0.1597, -0.0475, -0.0825, 0}; //linear speed=[0 0.0428 0],w=0;
+    //tm_reflexxes::ReflexxesVelocityRun(TM5, *IP_velocity, TargetVelocity, 2);
+
+    //getchar();
+    
+    //print_info("Smooth Stop Activate...");
+    //tm_reflexxes::ReflexxesSmoothStop(TM5,*IP_velocity, 0.5);
 
 
 
@@ -522,10 +525,8 @@ int main(int argc, char **argv)
         }        
         else if (strncmp(cstr, "gotest", 6) == 0)
         {
-            //print_info("joint velocity control mode ON...");
-            
-            //ReflexxesStart(TmRobot);
-            ComplianceTeach(TmRobot);
+            ReflexxesStart(TmRobot);
+            //ComplianceTeach(TmRobot);
 
             TmRobot.setJointSpdModeoOFF();
             print_info("joint vlocity control mode OFF...");
