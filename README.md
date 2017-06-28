@@ -16,6 +16,12 @@ A new driver for the TM5 robot arms from [Techman Robot.](http://tm-robot.com/) 
 - ```tm_reflexxes``` : On-line trajectory generation under joint velocity supported.
 - All the packages are ROS supported ready.
 
+## Update
+The libraries inside the package are still keep updating and being developing for newer functions and improving better usability. For the lastest version of packages, please check out the following individual files : 
+- tm_driver : [ISCI-NCTU/tm_reflexxes/tm_driver](https://github.com/ISCI-NCTU/tm_reflexxes)
+- tm_kinematics : [s880367/tm_jacobian/tm_kinematics](https://github.com/s880367/tm_jacobian)
+- tm_reflexxes : [ISCI-NCTU/tm_reflexxes/tm_reflexxes](https://github.com/ISCI-NCTU/tm_reflexxes)
+
 ## Installation
 - For building the package requre [Eigen3](http://eigen.tuxfamily.org/index.php?title=Main_Page)
 ```
