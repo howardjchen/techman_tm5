@@ -833,7 +833,8 @@ int main(int argc, char **argv)
 //***************************
     int k = 0;
     double *qr = new double[60];
-    double *qv = new double[60];
+    std::vector<double> qv;
+    qv.assign(6, 0.0f);
     Eigen::Matrix3d RotationMatrix;
     RotationMatrix << cos(PITCH * DEG2RAD), 0, sin(PITCH * DEG2RAD),
                    0, 1,                    0,
@@ -842,7 +843,7 @@ int main(int argc, char **argv)
     IdentityMatrix << 1, 0, 0,
                    0, 1, 0,
                    0, 0, 1;
-    Eigen::Vector2d MinimumXZPoint;
+    Eigen::Vector3d MinimumXZPoint;
     MinimumXZPoint << (0.26 + CompenX),
                    (0.0 + CompenY),
                    (-0.295 + CompenZ);
@@ -855,8 +856,9 @@ int main(int argc, char **argv)
     while (k != record)
     {
         std::vector<double> CarPosition;
+        std::vector<double> CurrentPosition;
         CarPosition.assign(6, 0.0f);
-
+        CurrentPosition.assign(6, 0.0f);
         if (x[k] == -1)
             break;
 
@@ -864,9 +866,9 @@ int main(int argc, char **argv)
         temp << x[k], y[k], z[k];
         temp = RotationMatrix * temp;
 
-        CarPosition[0] = temp(0) + ((I - RotationMatrix) * MinimumXZPoint)(0);
+        CarPosition[0] = temp(0) + ((IdentityMatrix - RotationMatrix) * MinimumXZPoint)(0);
         CarPosition[1] = temp(1);
-        CarPosition[2] = temp(2) + ((I - RotationMatrix) * MinimumXZPoint)(2);
+        CarPosition[2] = temp(2) + ((IdentityMatrix - RotationMatrix) * MinimumXZPoint)(2);
         CarPosition[3] = 90.0 * DEG2RAD;
         CarPosition[4] = 0.0 * DEG2RAD;
         CarPosition[5] = (180.0 + PITCH) * DEG2RAD;
@@ -884,8 +886,9 @@ int main(int argc, char **argv)
             for (int i = 0; i < NUMBER_OF_DOFS; ++i)
             {
                 TargetPosition[i] = qr[i];
+                CurrentPosition[i]=qr[i];
             }
-            GetQdfromInverseJacobian(qr,Velocitycalculate,qv)
+            GetQdfromInverseJacobian(CurrentPosition,Velocitycalculate,qv);
             //linear velocity = GetQdfromInverseJacobian*qr
             //target velocity = linear velocity
             for (int i = 0; i < NUMBER_OF_DOFS; ++i)
