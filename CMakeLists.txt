@@ -1,17 +1,12 @@
 cmake_minimum_required(VERSION 2.8.2)
 project(techman_tm5)
 
-set(CMAKE_MODULE_PATH 
-	${CMAKE_CURRENT_LIST_DIR}/cmake-modules)
-
 find_package(Eigen3)
-find_package(MySqlClient REQUIRED)
 
 include_directories(tm_reflexxes/include 
 					ReflexxesTypeII/include 
 					tm_driver/include
 					tm_kinematics/include
-					${MYSQL_INCLUDE_DIR}
 )
 
 
@@ -63,13 +58,5 @@ target_link_libraries(tm_otg
 	TM_REFLEXXES_LIB 
 	TM_DRIVER_LIB 
 	TM_KINEMATICS_LIB)
-
-add_executable(tm_pbd tm_pbd.cpp)
-target_link_libraries(tm_pbd 
-	RMLTYPEII_LIB 
-	TM_REFLEXXES_LIB 
-	TM_DRIVER_LIB 
-	TM_KINEMATICS_LIB
-	${MYSQL_LIBRARIES})
 
 install(TARGETS tm_bringup RUNTIME DESTINATION bin)
