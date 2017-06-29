@@ -1,12 +1,17 @@
 cmake_minimum_required(VERSION 2.8.2)
 project(techman_tm5)
 
+set(CMAKE_MODULE_PATH 
+	${CMAKE_CURRENT_LIST_DIR}/cmake-modules)
+
 find_package(Eigen3)
+find_package(MySqlClient REQUIRED)
 
 include_directories(tm_reflexxes/include 
 					ReflexxesTypeII/include 
 					tm_driver/include
 					tm_kinematics/include
+					${MYSQL_INCLUDE_DIR}
 )
 
 
@@ -15,22 +20,22 @@ include_directories(tm_reflexxes/include
 
 file(GLOB RMLtypeII_DIR    ReflexxesTypeII/src/*.cpp)
 file(GLOB tm_reflexxex_DIR tm_reflexxes/src/*.cpp)
+
 set(tm_driver_DIR 
 	tm_driver/src/tm_print.cpp
 	tm_driver/src/tm_robot_state_rt.cpp
 	tm_driver/src/tm_communication.cpp
-	tm_driver/src/tm_driver.cpp
-)
+	tm_driver/src/tm_driver.cpp)
+
 set(tm_kin_DIR 
 	tm_kinematics/src/tm_kin.cpp
-	tm_kinematics/src/tm_jacob.cpp
-)
+	tm_kinematics/src/tm_jacob.cpp)
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -pthread")
 
 
 ######################################################
-# Add the source to library and link dependancy lib 
+# build source to library and Linking CXX static library
 
 add_library(RMLTYPEII_LIB     ${RMLtypeII_DIR}   )
 add_library(TM_REFLEXXES_LIB  ${tm_reflexxex_DIR})
@@ -43,6 +48,7 @@ target_link_libraries(TM_REFLEXXES_LIB
 	TM_KINEMATICS_LIB)
 
 ######################################################
+# build source to exe and Linking CXX static library
 
 add_executable(tm_bringup tm_bringup.cpp)
 target_link_libraries(tm_bringup 
@@ -57,5 +63,13 @@ target_link_libraries(tm_otg
 	TM_REFLEXXES_LIB 
 	TM_DRIVER_LIB 
 	TM_KINEMATICS_LIB)
+
+add_executable(tm_pbd tm_pbd.cpp)
+target_link_libraries(tm_pbd 
+	RMLTYPEII_LIB 
+	TM_REFLEXXES_LIB 
+	TM_DRIVER_LIB 
+	TM_KINEMATICS_LIB
+	${MYSQL_LIBRARIES})
 
 install(TARGETS tm_bringup RUNTIME DESTINATION bin)
