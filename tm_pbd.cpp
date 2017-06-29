@@ -611,13 +611,13 @@ bool ReflexxesPositionRun_sim(  RMLPositionInputParameters &InputState,
 
     if (pass)
     {
-        printf("=============== Final state ReflexxesPositionSafetyRun_sim =========================\n");
+        //printf("=============== Final state ReflexxesPositionSafetyRun_sim =========================\n");
         printf("[ %lf ]  ", time_s);
-        for (int i = 0; i < NUMBER_OF_DOFS; ++i)
-            printf("%10.4lf ", IP->CurrentVelocityVector->VecData[i]);
-
-        printf("\n");
+        printf("%10.4lf %10.4lf %10.4lf ", T[3], T[7], T[11]);
+        //for (int i = 0; i < NUMBER_OF_DOFS; ++i)
+        //    printf("%10.4lf ", IP->CurrentVelocityVector->VecData[i]);
         print_info("Finished in %llu us", tt);
+        printf("\n");
     }
     resetTermios();
     InputState = *IP;
@@ -787,7 +787,7 @@ int main(int argc, char **argv)
     mysql_close(con);
 
 //**************************************************
-
+//connect to robot ip
     /*
         for (int i = 0; i < argc; i++)
         {
@@ -802,6 +802,7 @@ int main(int argc, char **argv)
         char delim[] = " ,;\t";
         char c;
     */
+
 //*******************************
 //homing
     double SynchronousTime = 0.5;
@@ -837,16 +838,19 @@ int main(int argc, char **argv)
     qv.assign(6, 0.0f);
     Eigen::Matrix3d RotationMatrix;
     RotationMatrix << cos(PITCH * DEG2RAD), 0, sin(PITCH * DEG2RAD),
-                   0, 1,                    0,
-                   -sin(PITCH * DEG2RAD), 0, cos(PITCH * DEG2RAD);
+                                         0, 1,                    0,
+                     -sin(PITCH * DEG2RAD), 0, cos(PITCH * DEG2RAD);
+    
     Eigen::Matrix3d IdentityMatrix;
-    IdentityMatrix << 1, 0, 0,
-                   0, 1, 0,
-                   0, 0, 1;
+    IdentityMatrix <<  1, 0, 0,
+                       0, 1, 0,
+                       0, 0, 1;
+    
     Eigen::Vector3d MinimumXZPoint;
-    MinimumXZPoint << (0.26 + CompenX),
-                   (0.0 + CompenY),
-                   (-0.295 + CompenZ);
+    MinimumXZPoint <<   (0.26   + CompenX),
+                        (0.0    + CompenY),
+                        (-0.295 + CompenZ);
+    
     std::vector<double> LastCarPosition;
     LastCarPosition.assign(3, 0.0f);
 
@@ -885,23 +889,32 @@ int main(int argc, char **argv)
             printf("%d   ", k );
             for (int i = 0; i < NUMBER_OF_DOFS; ++i)
             {
-                TargetPosition[i] = qr[i];
-                CurrentPosition[i]=qr[i];
+                TargetPosition[i]  = qr[i];
+                CurrentPosition[i] = qr[i];
             }
-            GetQdfromInverseJacobian(CurrentPosition,Velocitycalculate,qv);
-            //linear velocity = GetQdfromInverseJacobian*qr
-            //target velocity = linear velocity
-            for (int i = 0; i < NUMBER_OF_DOFS; ++i)
+
+            if(GetQdfromInverseJacobian(CurrentPosition,Velocitycalculate,qv))
             {
-                TargetVelocity[i] = qv[i];
+                for (int i = 0; i < NUMBER_OF_DOFS; ++i)
+                    TargetVelocity[i] = qv[i];
             }
+            else
+            {
+                printf("inverse qd out of limit\n");
+                print_info("Smooth Stop Activate...");
+                *IP_vel->CurrentPositionVector     = *IP_position->CurrentPositionVector;
+                *IP_vel->CurrentVelocityVector     = *IP_position->CurrentVelocityVector;
+                *IP_vel->CurrentAccelerationVector = *IP_position->CurrentAccelerationVector;
+                tm_reflexxes::ReflexxesSmoothStop_sim(*IP_vel, 0.5);
+                break;
+            }
+
             if (!ReflexxesPositionRun_sim(*IP_position, TargetPosition, TargetVelocity, SynchronousTime))
                 break;
-
         }
         else
         {
-            printf("inverse out of limit\n");
+            printf("inverse q out of limit\n");
             print_info("Smooth Stop Activate...");
             *IP_vel->CurrentPositionVector     = *IP_position->CurrentPositionVector;
             *IP_vel->CurrentVelocityVector     = *IP_position->CurrentVelocityVector;
