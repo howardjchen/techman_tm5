@@ -738,12 +738,12 @@ int main(int argc, char **argv)
     y = new double [3000];
     z = new double [3000];
 
-    /*const int STDIN = 0;
+    const int STDIN = 0;
     int sockfd = -1;
     bool fgRun = false;
     std::string host;
     std::condition_variable data_cv;
-    std::condition_variable data_cv_rt;*/
+    std::condition_variable data_cv_rt;
 
 //**************************************************
 //connect to mysql
@@ -788,7 +788,7 @@ int main(int argc, char **argv)
 
 //**************************************************
 //connect to robot ip
-    /*
+    
         for (int i = 0; i < argc; i++)
         {
             printf("[DEBUG] arg%d:= %s\n", i, argv[i]);
@@ -801,9 +801,9 @@ int main(int argc, char **argv)
         char cstr[512];
         char delim[] = " ,;\t";
         char c;
-    */
+    
 
-//*******************************
+//******************************************************************************************************
 //homing
     double SynchronousTime = 0.5;
     std::vector<double> TargetVelocity(6), TargetPosition(6);
@@ -825,13 +825,13 @@ int main(int argc, char **argv)
         for (int i = 0; i < NUMBER_OF_DOFS; ++i)
             TargetPosition[i] = qh[i];
 
-        ReflexxesPositionRun_sim(*IP_position, TargetPosition, TargetVelocity, SynchronousTime);
+        tm_reflexxes::ReflexxesPositionRun(TmRobot,*IP_position, TargetPosition, TargetVelocity, 2.0);
         printf("Home reached\n");
     }
     else
         printf("Home out of limit \n");
 
-//***************************
+//*********************************************************************************************************
     int k = 0;
     double *qr = new double[60];
     std::vector<double> qv;
@@ -900,9 +900,11 @@ int main(int argc, char **argv)
             {
                 TargetVelocity = {0,0,0,0,0,0};
                 StartFlag = true;
+                SynchronousTime = 1.0;
             }
             else
             {    
+                SynchronousTime = 0.5;
                 if(GetQdfromInverseJacobian(CurrentPosition,Velocitycalculate,qv))
                 {
                     for (int i = 0; i < NUMBER_OF_DOFS; ++i)
@@ -915,13 +917,13 @@ int main(int argc, char **argv)
                     *IP_vel->CurrentPositionVector     = *IP_position->CurrentPositionVector;
                     *IP_vel->CurrentVelocityVector     = *IP_position->CurrentVelocityVector;
                     *IP_vel->CurrentAccelerationVector = *IP_position->CurrentAccelerationVector;
-                    tm_reflexxes::ReflexxesSmoothStop_sim(*IP_vel, 0.5);
+                    tm_reflexxes::ReflexxesSmoothStop(TmRobot,*IP_vel, 0.5);
                     StopFlag = true;
                     break;
                 }
             }
             
-            if (!ReflexxesPositionRun_sim(*IP_position, TargetPosition, TargetVelocity, SynchronousTime))
+            if (!tm_reflexxes::ReflexxesPositionRun(TmRobot,*IP_position, TargetPosition, TargetVelocity, SynchronousTime))
                 break;
         }
         else
@@ -931,7 +933,7 @@ int main(int argc, char **argv)
             *IP_vel->CurrentPositionVector     = *IP_position->CurrentPositionVector;
             *IP_vel->CurrentVelocityVector     = *IP_position->CurrentVelocityVector;
             *IP_vel->CurrentAccelerationVector = *IP_position->CurrentAccelerationVector;
-            tm_reflexxes::ReflexxesSmoothStop_sim(*IP_vel, 0.5);
+            tm_reflexxes::ReflexxesSmoothStop(TmRobot,*IP_vel, 0.5);
             StopFlag = true;
             break;
         }
@@ -950,7 +952,7 @@ int main(int argc, char **argv)
         *IP_vel->CurrentPositionVector     = *IP_position->CurrentPositionVector;
         *IP_vel->CurrentVelocityVector     = *IP_position->CurrentVelocityVector;
         *IP_vel->CurrentAccelerationVector = *IP_position->CurrentAccelerationVector;
-        tm_reflexxes::ReflexxesSmoothStop_sim(*IP_vel, 0.5);
+        tm_reflexxes::ReflexxesSmoothStop(TmRobot,*IP_vel, 0.5);
     }
 
     delete [] qh;
