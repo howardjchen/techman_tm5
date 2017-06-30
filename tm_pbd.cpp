@@ -44,10 +44,10 @@
 #define DEG2RAD 0.01745329252
 #define RAD2DEG 57.29577951
 #define PITCH 0
-#define CompenX 0.1
-#define CompenY 0.15
-#define CompenZ 0.458
-
+#define CompenX 0.05
+#define CompenY 0.01   //1st:0.15, 2nd:0.10, 3rd:0.05
+#define CompenZ 0.559  //0.559 for 0 degree, 0.581 for 15 degree, 0.585 for 30 degree
+#define database "DATA1"
 using namespace std;
 
 
@@ -746,6 +746,22 @@ int main(int argc, char **argv)
     std::condition_variable data_cv_rt;
 
 //**************************************************
+//connect to robot ip
+    
+        for (int i = 0; i < argc; i++)
+        {
+            printf("[DEBUG] arg%d:= %s\n", i, argv[i]);
+        }
+        host = argv[1];
+        printf("[ INFO] host: %s", host.c_str());
+
+        TmDriver TmRobot(data_cv, data_cv_rt, host, 0);
+
+        char cstr[512];
+        char delim[] = " ,;\t";
+        char c;
+
+//**************************************************
 //connect to mysql
 
     char save[100];
@@ -759,7 +775,7 @@ int main(int argc, char **argv)
     {
         finish_with_error(con);
     }
-    sprintf(save, "SELECT * FROM %s", "DATA621");
+    sprintf(save, "SELECT * FROM %s", database);
     string a = save;
     if (mysql_query(con, a.c_str()))
     {
@@ -778,141 +794,239 @@ int main(int argc, char **argv)
 
         x[record] = (atof(row[0]) / 1000.0) + CompenX; //0//0.1
         y[record] = (atof(row[1]) / 1000.0) + CompenY;//0//0.15
-        z[record] = (atof(row[2]) / 1000.0) + CompenZ; //0.458//
+        if ( atof(row[2]) <= -291.3)
+        {
+            z[record] = (-291.3 / 1000.0) + CompenZ;
+        }
+        else
+        {
+            z[record] = (atof(row[2]) / 1000.0) + CompenZ; //0.458//
+        }
 
-        printf("x=%f  y=%f  z=%f\n", x[record], y[record], z[record]);
+
+        printf("%10.4f %10.4f %10.4f\n", x[record], y[record], z[record]);
         record++;
     }
     mysql_free_result(result);
     mysql_close(con);
-
-//**************************************************
-//connect to robot ip
+/**/
     
-        for (int i = 0; i < argc; i++)
+    while (1)
+    {
+        memset(cstr, 0, 512);
+        fgets(cstr, 512, stdin);
+        int n = (int)strlen(cstr);
+        if (n > 0)
         {
-            printf("[DEBUG] arg%d:= %s\n", i, argv[i]);
+            if (cstr[n - 1] == '\n')
+                cstr[n - 1] = '\0';
         }
-        host = argv[1];
-        printf("[ INFO] host: %s", host.c_str());
-
-        TmDriver TmRobot(data_cv, data_cv_rt, host, 0);
-
-        char cstr[512];
-        char delim[] = " ,;\t";
-        char c;
-    
-
-//******************************************************************************************************
-//homing
-    double SynchronousTime = 0.5;
-    std::vector<double> TargetVelocity(6), TargetPosition(6);
-    RMLPositionInputParameters  *IP_position = new RMLPositionInputParameters(NUMBER_OF_DOFS);
-    RMLVelocityInputParameters  *IP_vel      = new RMLVelocityInputParameters(NUMBER_OF_DOFS);
-
-    for (int i = 0; i < NUMBER_OF_DOFS; ++i)
-    {
-        IP_position->CurrentPositionVector->VecData[i] = 0.0;
-        IP_position->CurrentVelocityVector->VecData[i] = 0.0;
-        IP_position->CurrentAccelerationVector->VecData[i] = 0.0;
-    }
-
-    std::vector<double> Homing = { 0.24, -0.21, 0.36, 90.0 * DEG2RAD, 0.0 * DEG2RAD, 180.0 * DEG2RAD};
-    TargetVelocity = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-
-    if (GetQfromInverseKinematics(Homing, qh))
-    {
-        for (int i = 0; i < NUMBER_OF_DOFS; ++i)
-            TargetPosition[i] = qh[i];
-
-        tm_reflexxes::ReflexxesPositionRun(TmRobot,*IP_position, TargetPosition, TargetVelocity, 2.0);
-        printf("Home reached\n");
-    }
-    else
-        printf("Home out of limit \n");
-
-//*********************************************************************************************************
-    int k = 0;
-    double *qr = new double[60];
-    std::vector<double> qv;
-    qv.assign(6, 0.0f);
-    Eigen::Matrix3d RotationMatrix;
-    RotationMatrix << cos(PITCH * DEG2RAD), 0, sin(PITCH * DEG2RAD),
-                                         0, 1,                    0,
-                     -sin(PITCH * DEG2RAD), 0, cos(PITCH * DEG2RAD);
-    
-    Eigen::Matrix3d IdentityMatrix;
-    IdentityMatrix <<  1, 0, 0,
-                       0, 1, 0,
-                       0, 0, 1;
-    
-    Eigen::Vector3d MinimumXZPoint;
-    MinimumXZPoint <<   (0.26   + CompenX),
-                        (0.0    + CompenY),
-                        (-0.295 + CompenZ);
-    
-    std::vector<double> LastCarPosition;
-    LastCarPosition.assign(3, 0.0f);
-
-    std::vector<double> Velocitycalculate;
-    Velocitycalculate.assign(6, 0.0f);
-
-    bool StartFlag = false;
-    bool StopFlag = false;
-
-    while (k != record)
-    {
-        std::vector<double> CarPosition;
-        std::vector<double> CurrentPosition;
-        CarPosition.assign(6, 0.0f);
-        CurrentPosition.assign(6, 0.0f);
-        if (x[k] == -1)
+        if (strncmp(cstr, "quit", 4) == 0)
+        {
+            TmRobot.interface->halt();
+            fgRun = false;
+            print_info("quit");
+            std::this_thread::sleep_for(std::chrono::milliseconds(25));
             break;
-
-        Eigen::Vector3d temp;
-        temp << x[k], y[k], z[k];
-        temp = RotationMatrix * temp;
-
-        CarPosition[0] = temp(0) + ((IdentityMatrix - RotationMatrix) * MinimumXZPoint)(0);
-        CarPosition[1] = temp(1);
-        CarPosition[2] = temp(2) + ((IdentityMatrix - RotationMatrix) * MinimumXZPoint)(2);
-        CarPosition[3] = 90.0 * DEG2RAD;
-        CarPosition[4] = 0.0 * DEG2RAD;
-        CarPosition[5] = (180.0 + PITCH) * DEG2RAD;
-
-        for (int i = 0; i < 3; i++) {
-
-            Velocitycalculate[i] = (CarPosition[i] - LastCarPosition[i]) / SynchronousTime;
         }
-        
-
-
-        if (GetQfromInverseKinematics(CarPosition, qr))
+        else if (strncmp(cstr, "start", 5) == 0)
         {
-            printf("%d   ", k );
+            if (!fgRun)
+            {
+                print_info("start...");
+                fgRun = TmRobot.interface->start();
+            }
+        }
+        else if (strncmp(cstr, "halt", 4) == 0)
+        {
+            print_info("halt");
+            TmRobot.interface->halt();
+            fgRun = false;
+        }
+        else if (strncmp(cstr, "clear", 5) == 0)
+        {
+            system("clear");
+        }
+        else if (strncmp(cstr, "run", 3) == 0)
+        {
+            print_info("run...");
+            TmRobot.setRobotRun();
+        }
+        else if (strncmp(cstr, "stop", 4) == 0)
+        {
+            print_info("stop...");
+            TmRobot.setRobotStop();
+        }
+        else if (strncmp(cstr, "emstop", 6) == 0)
+        {
+            print_info("emergency stop... need input 'run' for resume...");
+            TmRobot.setRobotStopRun();
+        }
+        else if (strncmp(cstr, "jointspdon", 10) == 0)
+        {
+            print_info("joint velocity control mode ON...");
+            TmRobot.setJointSpdModeON();
+        }
+        else if (strncmp(cstr, "jointspdoff", 11) == 0)
+        {
+            print_info("joint vlocity control mode OFF...");
+            TmRobot.setJointSpdModeoOFF();
+        }
+        else if (strncmp(cstr, "movjspd", 7) == 0)
+        {
+            double blend = 0;
+            std::vector<double> vec = parse_cmd(cstr, delim, blend);
+            TmRobot.setMoveJointSpeedabs(vec, blend);
+        }
+        else if(strncmp(cstr, "home", 4) == 0)
+        {
+            double blend = 0;
+            std::vector<double> vec1 = {0,0,0,0,0,0};
+            TmRobot.setMoveJabs(vec1, blend);
+            print_info("Back to home");
+        }
+        else if(strncmp(cstr, "ready", 5) == 0)
+        {
+            double blend = 0;
+            std::vector<double> vec11 = {0,0,90*DEG2RAD,-90*DEG2RAD,90*DEG2RAD,0};
+            TmRobot.setMoveJabs(vec11, blend);
+            print_info("Back to ready");
+        }
+        else if (strncmp(cstr, "gotest", 6) == 0)
+        {
+            TmRobot.setJointSpdModeON();
+            cout << "joint speed mode on" << endl;
+            double SynchronousTime = 2.0;
+            double IntervalTime = 0.05;
+            std::vector<double> TargetVelocity(6), TargetPosition(6);
+            RMLPositionInputParameters  *IP_position = new RMLPositionInputParameters(NUMBER_OF_DOFS);
+            RMLVelocityInputParameters  *IP_vel      = new RMLVelocityInputParameters(NUMBER_OF_DOFS);
+
             for (int i = 0; i < NUMBER_OF_DOFS; ++i)
             {
-                TargetPosition[i]  = qr[i];
-                CurrentPosition[i] = qr[i];
+                IP_position->CurrentPositionVector->VecData[i] = 0.0;
+                IP_position->CurrentVelocityVector->VecData[i] = 0.0;
+                IP_position->CurrentAccelerationVector->VecData[i] = 0.0;
             }
+            //******************************************************************
+            //homing
 
-            if(!StartFlag)
+            std::vector<double> Homing = { 0.24, -0.21, 0.36, 90.0 * DEG2RAD, 0.0 * DEG2RAD, 180.0 * DEG2RAD};
+            TargetVelocity = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+
+            if (GetQfromInverseKinematics(Homing, qh))
             {
-                TargetVelocity = {0,0,0,0,0,0};
-                StartFlag = true;
-                SynchronousTime = 1.0;
+                for (int i = 0; i < NUMBER_OF_DOFS; ++i)
+                    TargetPosition[i] = qh[i];
+
+                tm_reflexxes::ReflexxesPositionRun(TmRobot,*IP_position, TargetPosition, TargetVelocity, 5.0);
+                printf("Home reached\n");
             }
             else
-            {    
-                SynchronousTime = 0.5;
-                if(GetQdfromInverseJacobian(CurrentPosition,Velocitycalculate,qv))
+                printf("Home out of limit \n");
+            
+            //******************************************************************
+            
+
+            getchar();
+
+            int k = 0;
+            double *qr = new double[60];
+            std::vector<double> qv;
+            qv.assign(6, 0.0f);
+            Eigen::Matrix3d RotationMatrix;
+            RotationMatrix << cos(PITCH * DEG2RAD), 0, sin(PITCH * DEG2RAD),
+                                                 0, 1,                    0,
+                             -sin(PITCH * DEG2RAD), 0, cos(PITCH * DEG2RAD);
+
+            Eigen::Matrix3d IdentityMatrix;
+            IdentityMatrix <<  1, 0, 0,
+                               0, 1, 0,
+                               0, 0, 1;
+
+            Eigen::Vector3d MinimumXZPoint;
+            MinimumXZPoint <<   (0.35   + CompenX),
+                                (0.0    + CompenY),
+                                (-0.29  + CompenZ);
+
+            std::vector<double> LastCarPosition;
+            LastCarPosition.assign(3, 0.0f);
+
+            std::vector<double> Velocitycalculate;
+            Velocitycalculate.assign(6, 0.0f);
+
+            bool StartFlag = false;
+            bool StopFlag = false;
+
+            while (k != record)
+            {
+                std::vector<double> CarPosition;
+                std::vector<double> CurrentPosition;
+                CarPosition.assign(6, 0.0f);
+                CurrentPosition.assign(6, 0.0f);
+                if (x[k] == -1)
+                    break;
+
+                Eigen::Vector3d temp;
+                temp << x[k], y[k], z[k];
+                temp = RotationMatrix * temp;
+
+                CarPosition[0] = temp(0) + ((IdentityMatrix - RotationMatrix) * MinimumXZPoint)(0);
+                CarPosition[1] = temp(1);
+                CarPosition[2] = temp(2) + ((IdentityMatrix - RotationMatrix) * MinimumXZPoint)(2);
+                CarPosition[3] = 90.0 * DEG2RAD;
+                CarPosition[4] = 0.0 * DEG2RAD;
+                CarPosition[5] = (180.0 + PITCH) * DEG2RAD;
+
+                for (int i = 0; i < 3; i++) {
+
+                    Velocitycalculate[i] = (CarPosition[i] - LastCarPosition[i]) / 0.05;
+                }
+                
+
+
+                if (GetQfromInverseKinematics(CarPosition, qr))
                 {
+                    printf("%d   ", k );
                     for (int i = 0; i < NUMBER_OF_DOFS; ++i)
-                        TargetVelocity[i] = qv[i];
+                    {
+                        TargetPosition[i]  = qr[i];
+                        CurrentPosition[i] = qr[i];
+                    }
+
+                    if(!StartFlag)
+                    {
+                        TargetVelocity = {0,0,0,0,0,0};
+                        StartFlag = true;
+                        SynchronousTime = 5.0;
+                    }
+                    else
+                    {    
+                        SynchronousTime = 0.1;
+                        if(GetQdfromInverseJacobian(CurrentPosition,Velocitycalculate,qv))
+                        {
+                            for (int i = 0; i < NUMBER_OF_DOFS; ++i)
+                                TargetVelocity[i] = qv[i];
+                        }
+                        else
+                        {
+                            printf("inverse qd out of limit\n");
+                            print_info("Smooth Stop Activate...");
+                            *IP_vel->CurrentPositionVector     = *IP_position->CurrentPositionVector;
+                            *IP_vel->CurrentVelocityVector     = *IP_position->CurrentVelocityVector;
+                            *IP_vel->CurrentAccelerationVector = *IP_position->CurrentAccelerationVector;
+                            tm_reflexxes::ReflexxesSmoothStop(TmRobot,*IP_vel, 0.5);
+                            StopFlag = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!tm_reflexxes::ReflexxesPositionRun(TmRobot,*IP_position, TargetPosition, TargetVelocity, SynchronousTime))
+                        break;
                 }
                 else
                 {
-                    printf("inverse qd out of limit\n");
+                    printf("inverse q out of limit\n");
                     print_info("Smooth Stop Activate...");
                     *IP_vel->CurrentPositionVector     = *IP_position->CurrentPositionVector;
                     *IP_vel->CurrentVelocityVector     = *IP_position->CurrentVelocityVector;
@@ -921,44 +1035,46 @@ int main(int argc, char **argv)
                     StopFlag = true;
                     break;
                 }
+                for (int i = 0; i < 3; i++) {
+                    LastCarPosition[i] = CarPosition[i];
+                }
+
+                k++;
             }
-            
-            if (!tm_reflexxes::ReflexxesPositionRun(TmRobot,*IP_position, TargetPosition, TargetVelocity, SynchronousTime))
-                break;
+
+
+            printf("Finish drawing\n");
+            if(!StopFlag)
+            {
+                print_info("Smooth Stop Activate...");
+                *IP_vel->CurrentPositionVector     = *IP_position->CurrentPositionVector;
+                *IP_vel->CurrentVelocityVector     = *IP_position->CurrentVelocityVector;
+                *IP_vel->CurrentAccelerationVector = *IP_position->CurrentAccelerationVector;
+                tm_reflexxes::ReflexxesSmoothStop(TmRobot,*IP_vel, 0.5);
+            }
+
+            delete [] qh;
+            delete [] x;
+            delete [] y;
+            delete [] z;
+            /**/
+            TmRobot.setJointSpdModeoOFF();
+            cout << "joint speed mode off" << endl;
+        
+        }
+        else if (strncmp(cstr, "movjabs", 7) == 0)
+        {
+            double blend = 0;
+            std::vector<double> vec = parse_cmd(cstr, delim, blend);
+            TmRobot.setMoveJabs(vec, blend);
         }
         else
         {
-            printf("inverse q out of limit\n");
-            print_info("Smooth Stop Activate...");
-            *IP_vel->CurrentPositionVector     = *IP_position->CurrentPositionVector;
-            *IP_vel->CurrentVelocityVector     = *IP_position->CurrentVelocityVector;
-            *IP_vel->CurrentAccelerationVector = *IP_position->CurrentAccelerationVector;
-            tm_reflexxes::ReflexxesSmoothStop(TmRobot,*IP_vel, 0.5);
-            StopFlag = true;
-            break;
+            print_info("send cmd...");
+            std::string msg(cstr);
+            TmRobot.setCommandMsg(msg);
         }
-        for (int i = 0; i < 3; i++) {
-            LastCarPosition[i] = CarPosition[i];
-        }
-
-        k++;
     }
-
-
-    printf("Finish drawing\n");
-    if(!StopFlag)
-    {
-        print_info("Smooth Stop Activate...");
-        *IP_vel->CurrentPositionVector     = *IP_position->CurrentPositionVector;
-        *IP_vel->CurrentVelocityVector     = *IP_position->CurrentVelocityVector;
-        *IP_vel->CurrentAccelerationVector = *IP_position->CurrentAccelerationVector;
-        tm_reflexxes::ReflexxesSmoothStop(TmRobot,*IP_vel, 0.5);
-    }
-
-    delete [] qh;
-    delete [] x;
-    delete [] y;
-    delete [] z;
     return 0;
 }
 
