@@ -857,6 +857,9 @@ int main(int argc, char **argv)
     std::vector<double> Velocitycalculate;
     Velocitycalculate.assign(6, 0.0f);
 
+    bool StartFlag = false;
+    bool StopFlag = false;
+
     while (k != record)
     {
         std::vector<double> CarPosition;
@@ -893,22 +896,31 @@ int main(int argc, char **argv)
                 CurrentPosition[i] = qr[i];
             }
 
-            if(GetQdfromInverseJacobian(CurrentPosition,Velocitycalculate,qv))
+            if(!StartFlag)
             {
-                for (int i = 0; i < NUMBER_OF_DOFS; ++i)
-                    TargetVelocity[i] = qv[i];
+                TargetVelocity = {0,0,0,0,0,0};
+                StartFlag = true;
             }
             else
-            {
-                printf("inverse qd out of limit\n");
-                print_info("Smooth Stop Activate...");
-                *IP_vel->CurrentPositionVector     = *IP_position->CurrentPositionVector;
-                *IP_vel->CurrentVelocityVector     = *IP_position->CurrentVelocityVector;
-                *IP_vel->CurrentAccelerationVector = *IP_position->CurrentAccelerationVector;
-                tm_reflexxes::ReflexxesSmoothStop_sim(*IP_vel, 0.5);
-                break;
+            {    
+                if(GetQdfromInverseJacobian(CurrentPosition,Velocitycalculate,qv))
+                {
+                    for (int i = 0; i < NUMBER_OF_DOFS; ++i)
+                        TargetVelocity[i] = qv[i];
+                }
+                else
+                {
+                    printf("inverse qd out of limit\n");
+                    print_info("Smooth Stop Activate...");
+                    *IP_vel->CurrentPositionVector     = *IP_position->CurrentPositionVector;
+                    *IP_vel->CurrentVelocityVector     = *IP_position->CurrentVelocityVector;
+                    *IP_vel->CurrentAccelerationVector = *IP_position->CurrentAccelerationVector;
+                    tm_reflexxes::ReflexxesSmoothStop_sim(*IP_vel, 0.5);
+                    StopFlag = true;
+                    break;
+                }
             }
-
+            
             if (!ReflexxesPositionRun_sim(*IP_position, TargetPosition, TargetVelocity, SynchronousTime))
                 break;
         }
@@ -920,6 +932,7 @@ int main(int argc, char **argv)
             *IP_vel->CurrentVelocityVector     = *IP_position->CurrentVelocityVector;
             *IP_vel->CurrentAccelerationVector = *IP_position->CurrentAccelerationVector;
             tm_reflexxes::ReflexxesSmoothStop_sim(*IP_vel, 0.5);
+            StopFlag = true;
             break;
         }
         for (int i = 0; i < 3; i++) {
@@ -929,12 +942,16 @@ int main(int argc, char **argv)
         k++;
     }
 
+
     printf("Finish drawing\n");
-    print_info("Smooth Stop Activate...");
-    *IP_vel->CurrentPositionVector     = *IP_position->CurrentPositionVector;
-    *IP_vel->CurrentVelocityVector     = *IP_position->CurrentVelocityVector;
-    *IP_vel->CurrentAccelerationVector = *IP_position->CurrentAccelerationVector;
-    tm_reflexxes::ReflexxesSmoothStop_sim(*IP_vel, 0.5);
+    if(!StopFlag)
+    {
+        print_info("Smooth Stop Activate...");
+        *IP_vel->CurrentPositionVector     = *IP_position->CurrentPositionVector;
+        *IP_vel->CurrentVelocityVector     = *IP_position->CurrentVelocityVector;
+        *IP_vel->CurrentAccelerationVector = *IP_position->CurrentAccelerationVector;
+        tm_reflexxes::ReflexxesSmoothStop_sim(*IP_vel, 0.5);
+    }
 
     delete [] qh;
     delete [] x;
