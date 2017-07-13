@@ -105,6 +105,14 @@ namespace tm_jacobian {
 	void Matrix2DoubleArray(Eigen::MatrixXf InputMatrix, double *T);
 
 	void Matrix2DoubleVector(Eigen::MatrixXf InputMatrix, std::vector<double> &vec);
+
+	bool CheckJointLimit(double *q);
+
+	bool CheckVelocityLimit(std::vector<double> qd);
+
+	bool GetQfromInverseKinematics( std::vector<double> CartesianPosition, double *q_inv);
+
+	bool GetQdfromInverseJacobian(std::vector<double> CurrentPosition,std::vector<double> EFF_Velocity, std::vector<double>& qd);
 }
 
 #endif //TM_KIN_H
