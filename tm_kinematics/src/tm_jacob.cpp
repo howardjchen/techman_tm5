@@ -138,4 +138,120 @@ namespace tm_jacobian {
 			vec[i] = InputTranspose(i);
 	}
 
+	bool CheckJointLimit(double *q)
+	{
+	    bool valid = true;
+
+	    if(abs(q[0]) > 270*DEG2RAD)
+	    {
+	        printf("[WARN] the 1th joint : %lf\n",q[0] );
+	        valid = false;
+	    }
+	    else if(abs(q[1]) > 1.57)
+	    {
+	        printf("[WARN] the 2th joint : %lf\n",q[1] );
+	        valid = false;
+	    }
+	    else if(abs(q[2]) > 155*DEG2RAD)
+	    {
+	        printf("[WARN] the 3th joint : %lf\n",q[2] );
+	        valid = false;
+	    }
+	    else if(abs(q[3]) > 180*DEG2RAD)
+	    {
+	        printf("[WARN] the 4th joint : %lf\n",q[3] );
+	        valid = false;
+	    }
+	    else if(abs(q[4]) > 180*DEG2RAD)
+	    {
+	        printf("[WARN] the 5th joint : %lf\n",q[4] );
+	        valid = false;
+	    }
+	    else if(abs(q[5]) > 270*DEG2RAD)
+	    {
+	        printf("[WARN] the 6th joint : %lf\n",q[5] );
+	        valid = false;
+	    }
+	    else
+	        valid = true;
+
+	    return valid;
+	}
+
+	bool CheckVelocityLimit(std::vector<double> qd)
+	{
+	    bool valid = true;
+
+	    if(abs(qd[0]) > 180*DEG2RAD || abs(qd[1]) > 180*DEG2RAD || abs(qd[2]) > 180*DEG2RAD)
+	    {
+	        printf("[WARN] the 1th~3th joint : %10.4lf %10.4lf %10.4lf\n",qd[0],qd[3],qd[2] );
+	        valid = false;
+	    }
+	    else if(abs(qd[3]) > 225*DEG2RAD || abs(qd[4]) > 225*DEG2RAD || abs(qd[5]) > 225*DEG2RAD)
+	    {
+	        printf("[WARN] the 4th~6th joint : %10.4lf %10.4lf %10.4lf\n",qd[3],qd[4],qd[5] );
+	        valid = false;
+	    }
+	    else
+	        valid = true;
+
+	    return valid;
+	}
+
+	bool GetQfromInverseKinematics( std::vector<double> CartesianPosition, double *q_inv)
+	{
+	    Eigen::Matrix<float,4,4> T_;
+	    Eigen::AngleAxisf rollAngle (CartesianPosition[3], Eigen::Vector3f::UnitZ());
+	    Eigen::AngleAxisf yawAngle  (CartesianPosition[4], Eigen::Vector3f::UnitY());
+	    Eigen::AngleAxisf pitchAngle(CartesianPosition[5], Eigen::Vector3f::UnitX());
+	    Eigen::Quaternion<float> q = rollAngle * yawAngle * pitchAngle;
+	    Eigen::Matrix<float,3,3> RotationMatrix = q.matrix();
+	    double *T = new double[16];
+
+	    
+	    T_ <<   0., 0., 0., CartesianPosition[0],
+	            0., 0., 0., CartesianPosition[1],
+	            0., 0., 0., CartesianPosition[2],
+	            0., 0., 0., 1.;
+
+	    for (int i = 0; i < 3; ++i)
+	    {
+	        for (int j = 0; j < 3; ++j)
+	        {
+	            T_(i,j) = RotationMatrix(i,j);
+	        }
+	    }
+
+	    Matrix2DoubleArray(T_,T);
+	    printf(">>>> T \n");
+	    printMatrix(T,4,16);
+
+	    int num_sol =  tm_kinematics::inverse(T, q_inv);
+
+	    delete [] T;
+	    return CheckJointLimit(q_inv);
+	}
+
+	bool GetQdfromInverseJacobian(std::vector<double> CurrentPosition,std::vector<double> EFF_Velocity, std::vector<double>& qd)
+	{
+
+	    Eigen::Matrix<float, 6, 1> home,q;
+	    home << 0, -PI*0.5, 0, PI*0.5, 0, 0;
+	    Eigen::Matrix<float,6,1> effspd,jointspd;
+
+	    home   << 0, -PI*0.5, 0, PI*0.5, 0, 0;
+	    effspd << EFF_Velocity[0], EFF_Velocity[1], EFF_Velocity[2], EFF_Velocity[3], EFF_Velocity[4], EFF_Velocity[5];
+	    q      << CurrentPosition[0], CurrentPosition[1], CurrentPosition[2], CurrentPosition[3], CurrentPosition[4], CurrentPosition[5];
+	    q += home;
+
+	    Eigen::Matrix<float, 6, 6> Inverse_Jacobian = tm_jacobian::Inverse_Jacobian(q);
+	    jointspd = Inverse_Jacobian*effspd;
+	    //cout << ">>>> Inverse jacobian" << endl;
+	    //tm_jacobian::printMatrix(Inverse_Jacobian);
+
+	    Matrix2DoubleVector(jointspd,qd);
+
+	    return CheckVelocityLimit(qd);
+	}
+
 }
