@@ -47,8 +47,9 @@
 #define CompenX 0.05
 #define CompenY 0.01   //1st:0.15, 2nd:0.10, 3rd:0.05
 #define CompenZ 0.559  //0.559 for 0 degree, 0.581 for 15 degree, 0.585 for 30 degree
-#define database "DATA1"
+#define DATABASE "DATA4"
 #define Threshold 0.001
+#define P2P_SPEED 1
 using namespace std;
 
 
@@ -70,15 +71,20 @@ void uploadTrajectory(double JP[1000][6],double JV[1000][6],double TOOL[1000][3]
     upload_datay=new double[count+record];
     double *upload_dataz;
     upload_dataz=new double[count+record];
-    for(int l=0;l<record;l++){
+
+    for(int l=0;l<record;l++)
+    {
         upload_datax[l]=(x[l]-CompenX)*1000.0;
         upload_datay[l]=(y[l]-CompenY)*1000.0;
         upload_dataz[l]=(z[l]-CompenZ)*1000.0;
+        printf(" [%d] %10.3lf %10.3lf %10.3lf \n",l,upload_datax[l],upload_datay[l],upload_dataz[l]);
     }
-    for(int l=record;l<record+count;l++){
-        upload_datax[l]=(TOOL[l][0]-CompenX)*1000.0;
-        upload_datay[l]=(TOOL[l][1]-CompenY)*1000.0;
-        upload_dataz[l]=(TOOL[l][2]-CompenZ)*1000.0;
+    for(int l = 0; l < count; l++)
+    {
+        upload_datax[l+record]=(TOOL[l][0]-CompenX)*1000.0;
+        upload_datay[l+record]=(TOOL[l][1]-CompenY)*1000.0;
+        upload_dataz[l+record]=(TOOL[l][2]-CompenZ)*1000.0;
+        printf("tool : [%d] %10.3lf %10.3lf %10.3lf \n",l,TOOL[l][0],TOOL[l][1],TOOL[l][2]);
     }
     if (con == NULL)
     {
@@ -95,6 +101,7 @@ void uploadTrajectory(double JP[1000][6],double JV[1000][6],double TOOL[1000][3]
     if (mysql_query(con, "CREATE TABLE DATA4(X DOUBLE, Y DOUBLE, Z DOUBLE)")) {
         finish_with_error(con);
     }
+    print_info("Uploading...");
     for (i = 0; i < count+record; i++) {
         sprintf(upload, "INSERT INTO DATA4 VALUES(%f,%f,%f)", upload_datax[i], upload_datay[i], upload_dataz[i]);
         mysql_query(con, upload);
@@ -681,7 +688,7 @@ bool ReflexxesPositionRun_sim(  RMLPositionInputParameters &InputState,
     return pass;
 }
 
-void ReflexxesStart(TmDriver& TM5,double x[3000],double y[3000],double z[3000],int record)
+void ReflexxesStart(TmDriver& TM5, double *x, double *y, double *z, int record)
 {
 	
     double joint_position[1000][6];
@@ -706,21 +713,22 @@ void ReflexxesStart(TmDriver& TM5,double x[3000],double y[3000],double z[3000],i
             TM5.interface->stateRT->getQAct(q);
             TM5.interface->stateRT->getQdAct(qd);
             TM5.interface->stateRT->getToolPosAct(tool);
-            if(abs(tool[0]-lastposition[0])>Threshold||abs(tool[1]-lastposition[1])>Threshold||abs(tool[2]-lastposition[2])>Threshold){
-            for (int i = 0; i < 6; ++i)
+            if(abs(tool[0]-lastposition[0])>Threshold||abs(tool[1]-lastposition[1])>Threshold||abs(tool[2]-lastposition[2])>Threshold)
             {
-                joint_position[path_index][i] = q[i];
-                joint_velocity[path_index][i] = qd[i];
-            }
-            for (int i = 0; i < 3; ++i){
-                tool_position[path_index][i] = tool[i];
-                lastposition[i]=tool[i];
-            }
+                for (int i = 0; i < 6; ++i)
+                {
+                    joint_position[path_index][i] = q[i];
+                    joint_velocity[path_index][i] = qd[i];
+                }
+                for (int i = 0; i < 3; ++i){
+                    tool_position[path_index][i] = tool[i];
+                    lastposition[i]=tool[i];
+                }
 
-            printf("[%d] q:%10.3lf %10.3lf %10.3lf %10.3lf %10.3lf %10.3lf |qd:%10.3lf %10.3lf %10.3lf %10.3lf %10.3lf %10.3lf |tool:%10.3lf  %10.3lf  %10.3lf  \n",path_index,joint_position[path_index][0],joint_position[path_index][1],joint_position[path_index][2],joint_position[path_index][3],joint_position[path_index][4],joint_position[path_index][5],joint_velocity[path_index][0],joint_velocity[path_index][1],joint_velocity[path_index][2],joint_velocity[path_index][3],joint_velocity[path_index][4],joint_velocity[path_index][5],tool_position[path_index][0],tool_position[path_index][1],tool_position[path_index][2]);
-            path_index++;
+                printf("[%d] q:%10.3lf %10.3lf %10.3lf %10.3lf %10.3lf %10.3lf |qd:%10.3lf %10.3lf %10.3lf %10.3lf %10.3lf %10.3lf |tool:%10.3lf  %10.3lf  %10.3lf  \n",path_index,joint_position[path_index][0],joint_position[path_index][1],joint_position[path_index][2],joint_position[path_index][3],joint_position[path_index][4],joint_position[path_index][5],joint_velocity[path_index][0],joint_velocity[path_index][1],joint_velocity[path_index][2],joint_velocity[path_index][3],joint_velocity[path_index][4],joint_velocity[path_index][5],tool_position[path_index][0],tool_position[path_index][1],tool_position[path_index][2]);
+                path_index++;
         }
-            sleep(1);
+            usleep(10000);
 
             if(path_index > 1000)
                 break;
@@ -739,7 +747,8 @@ void ReflexxesStart(TmDriver& TM5,double x[3000],double y[3000],double z[3000],i
 
     resetTermios();
     uploadTrajectory(joint_position,joint_velocity,tool_position,x,y,z,path_index,record);
-    print_info("Enter to start running");
+    print_info("Upload complete");
+/*    print_info("Enter to start running");
 
     getchar();
 
@@ -805,7 +814,8 @@ void ReflexxesStart(TmDriver& TM5,double x[3000],double y[3000],double z[3000],i
     delete IP_velocity;
     delete [] T;
     delete [] q_inv;
-    delete [] q_ref;
+    delete [] q_ref;*/
+
 //********************************************************************************
 
     /*while(run_succeed)
@@ -850,6 +860,7 @@ void ReflexxesStart(TmDriver& TM5,double x[3000],double y[3000],double z[3000],i
         else
             break;
     }*/
+
 }
 
 int main(int argc, char **argv)
@@ -900,7 +911,7 @@ int main(int argc, char **argv)
     {
         finish_with_error(con);
     }
-    sprintf(save, "SELECT * FROM %s", database);
+    sprintf(save, "SELECT * FROM %s", DATABASE);
     string a = save;
     if (mysql_query(con, a.c_str()))
     {
@@ -929,13 +940,13 @@ int main(int argc, char **argv)
         }
 
 
-        printf("%10.4f %10.4f %10.4f\n", x[record], y[record], z[record]);
+        printf(" [%d] %10.4f %10.4f %10.4f\n",record, x[record], y[record], z[record]);
         record++;
     }
     mysql_free_result(result);
     mysql_close(con);
 
-    
+/**/    
     while (1)
     {
         memset(cstr, 0, 512);
@@ -1016,12 +1027,10 @@ int main(int argc, char **argv)
             std::vector<double> vec11 = {0,0,90*DEG2RAD,-90*DEG2RAD,90*DEG2RAD,0};
             TmRobot.setMoveJabs(vec11, blend);
             print_info("Back to ready");
-        }
+/**/    }
         else if (strncmp(cstr, "gotest", 6) == 0)
         {
-            
-
-          TmRobot.setJointSpdModeON();
+            TmRobot.setJointSpdModeON();
             cout << "joint speed mode on" << endl;
             double SynchronousTime = 2.0;
             double IntervalTime = 0.05;
@@ -1107,7 +1116,7 @@ int main(int argc, char **argv)
 
                 for (int i = 0; i < 3; i++) {
 
-                    Velocitycalculate[i] = (CarPosition[i] - LastCarPosition[i]) / 0.05;
+                    Velocitycalculate[i] = (CarPosition[i] - LastCarPosition[i]) / P2P_SPEED;
                 }
                 
 
@@ -1168,10 +1177,6 @@ int main(int argc, char **argv)
 
                 k++;
             }
-
-
-            printf("Finish drawing\n");
-            ReflexxesStart(TmRobot,x,y,z,record);
             if(!StopFlag)
             {
                 print_info("Smooth Stop Activate...");
@@ -1180,6 +1185,13 @@ int main(int argc, char **argv)
                 *IP_vel->CurrentAccelerationVector = *IP_position->CurrentAccelerationVector;
                 tm_reflexxes::ReflexxesSmoothStop(TmRobot,*IP_vel, 0.5);
             }
+
+
+            printf("Finish drawing\n");
+            TmRobot.setJointSpdModeOFF();
+            print_info("joint speed mode off");
+
+            //ReflexxesStart(TmRobot,x,y,z,record);
 
             delete [] qh;
             delete [] x;
