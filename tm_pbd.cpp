@@ -48,6 +48,7 @@
 #define CompenY 0.01   //1st:0.15, 2nd:0.10, 3rd:0.05
 #define CompenZ 0.559  //0.559 for 0 degree, 0.581 for 15 degree, 0.585 for 30 degree
 #define database "DATA1"
+#define Threshold 0.001
 using namespace std;
 
 
@@ -58,7 +59,52 @@ void finish_with_error(MYSQL *con)
     exit(1);
 }
 
-
+void uploadTrajectory(double JP[1000][6],double JV[1000][6],double TOOL[1000][3],double x[3000],double y[3000],double z[3000],int count,int record)
+{
+    MYSQL *con = mysql_init(NULL);
+    int i=0;
+    char upload[200];
+    double *upload_datax;
+    upload_datax=new double[count+record];
+    double *upload_datay;
+    upload_datay=new double[count+record];
+    double *upload_dataz;
+    upload_dataz=new double[count+record];
+    for(int l=0;l<record;l++){
+        upload_datax[l]=(x[l]-CompenX)*1000.0;
+        upload_datay[l]=(y[l]-CompenY)*1000.0;
+        upload_dataz[l]=(z[l]-CompenZ)*1000.0;
+    }
+    for(int l=record;l<record+count;l++){
+        upload_datax[l]=(TOOL[l][0]-CompenX)*1000.0;
+        upload_datay[l]=(TOOL[l][1]-CompenY)*1000.0;
+        upload_dataz[l]=(TOOL[l][2]-CompenZ)*1000.0;
+    }
+    if (con == NULL)
+    {
+        fprintf(stderr, "mysql_init() failed\n");
+        exit(1);
+    }
+    if (mysql_real_connect(con, "140.113.149.61", "admin", "123", "nova", 0, NULL, 0) == NULL)
+    {
+        finish_with_error(con);
+    }
+    if (mysql_query(con, "DROP TABLE IF EXISTS DATA4")) {
+        finish_with_error(con);
+    }
+    if (mysql_query(con, "CREATE TABLE DATA4(X DOUBLE, Y DOUBLE, Z DOUBLE)")) {
+        finish_with_error(con);
+    }
+    for (i = 0; i < count+record; i++) {
+        sprintf(upload, "INSERT INTO DATA4 VALUES(%f,%f,%f)", upload_datax[i], upload_datay[i], upload_dataz[i]);
+        mysql_query(con, upload);
+// printf("upl");
+    }
+    mysql_close(con);
+    delete [] upload_datax;
+    delete [] upload_datay;
+    delete [] upload_dataz;
+}
 
 
 /* tm_moder_driver.cpp */
@@ -635,12 +681,13 @@ bool ReflexxesPositionRun_sim(  RMLPositionInputParameters &InputState,
     return pass;
 }
 
-void ReflexxesStart(TmDriver& TM5)
+void ReflexxesStart(TmDriver& TM5,double x[3000],double y[3000],double z[3000],int record)
 {
+	
     double joint_position[1000][6];
     double joint_velocity[1000][6];
     double tool_position[1000][3];
-    std::vector<double> q(6), qd(6), tool(3);
+    std::vector<double> q(6), qd(6), tool(3),lastposition(3);
     int path_index = 0;
 
     initTermios(1);
@@ -651,6 +698,7 @@ void ReflexxesStart(TmDriver& TM5)
 
 //********************************************************************************
 //* compliance teach
+
     while(1)
     {
         if(TM5.interface->stateRT->getDataUpdated())
@@ -658,17 +706,20 @@ void ReflexxesStart(TmDriver& TM5)
             TM5.interface->stateRT->getQAct(q);
             TM5.interface->stateRT->getQdAct(qd);
             TM5.interface->stateRT->getToolPosAct(tool);
-
+            if(abs(tool[0]-lastposition[0])>Threshold||abs(tool[1]-lastposition[1])>Threshold||abs(tool[2]-lastposition[2])>Threshold){
             for (int i = 0; i < 6; ++i)
             {
                 joint_position[path_index][i] = q[i];
                 joint_velocity[path_index][i] = qd[i];
             }
-            for (int i = 0; i < 3; ++i)
+            for (int i = 0; i < 3; ++i){
                 tool_position[path_index][i] = tool[i];
+                lastposition[i]=tool[i];
+            }
 
             printf("[%d] q:%10.3lf %10.3lf %10.3lf %10.3lf %10.3lf %10.3lf |qd:%10.3lf %10.3lf %10.3lf %10.3lf %10.3lf %10.3lf |tool:%10.3lf  %10.3lf  %10.3lf  \n",path_index,joint_position[path_index][0],joint_position[path_index][1],joint_position[path_index][2],joint_position[path_index][3],joint_position[path_index][4],joint_position[path_index][5],joint_velocity[path_index][0],joint_velocity[path_index][1],joint_velocity[path_index][2],joint_velocity[path_index][3],joint_velocity[path_index][4],joint_velocity[path_index][5],tool_position[path_index][0],tool_position[path_index][1],tool_position[path_index][2]);
             path_index++;
+        }
             sleep(1);
 
             if(path_index > 1000)
@@ -687,9 +738,13 @@ void ReflexxesStart(TmDriver& TM5)
     }
 
     resetTermios();
+    uploadTrajectory(joint_position,joint_velocity,tool_position,x,y,z,path_index,record);
     print_info("Enter to start running");
 
     getchar();
+
+
+
 
 //********************************************************************************
 //* Running teached points
@@ -833,7 +888,7 @@ int main(int argc, char **argv)
 
 //**************************************************
 //connect to mysql
-/*
+
     char save[100];
     MYSQL *con = mysql_init(NULL);
     if (con == NULL)
@@ -879,7 +934,7 @@ int main(int argc, char **argv)
     }
     mysql_free_result(result);
     mysql_close(con);
-*/
+
     
     while (1)
     {
@@ -964,9 +1019,9 @@ int main(int argc, char **argv)
         }
         else if (strncmp(cstr, "gotest", 6) == 0)
         {
-            ReflexxesStart(TmRobot);
+            
 
-          /*TmRobot.setJointSpdModeON();
+          TmRobot.setJointSpdModeON();
             cout << "joint speed mode on" << endl;
             double SynchronousTime = 2.0;
             double IntervalTime = 0.05;
@@ -1116,6 +1171,7 @@ int main(int argc, char **argv)
 
 
             printf("Finish drawing\n");
+            ReflexxesStart(TmRobot,x,y,z,record);
             if(!StopFlag)
             {
                 print_info("Smooth Stop Activate...");
