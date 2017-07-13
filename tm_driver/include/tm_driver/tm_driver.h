@@ -111,8 +111,11 @@ public:
   bool setRobotRun();
   bool setRobotStopRun();
   bool setRobotStop();
-  bool setJointSpdModeoOFF();
+  bool setJointSpdModeOFF();
   bool setJointSpdModeON();
+
+  bool FreeBottonEnable();
+  bool FreeBottonDisable();
 
   
 

@@ -637,11 +637,67 @@ bool ReflexxesPositionRun_sim(  RMLPositionInputParameters &InputState,
 
 void ReflexxesStart(TmDriver& TM5)
 {
+    double joint_position[1000][6];
+    double joint_velocity[1000][6];
+    double tool_position[1000][3];
+    std::vector<double> q(6), qd(6), tool(3);
+    int path_index = 0;
+
+    initTermios(1);
+
+    print_info("Enter to start recording");
+    getchar();
+    print_info("Start recording");
+
+//********************************************************************************
+//* compliance teach
+    while(1)
+    {
+        if(TM5.interface->stateRT->getDataUpdated())
+        {
+            TM5.interface->stateRT->getQAct(q);
+            TM5.interface->stateRT->getQdAct(qd);
+            TM5.interface->stateRT->getToolPosAct(tool);
+
+            for (int i = 0; i < 6; ++i)
+            {
+                joint_position[path_index][i] = q[i];
+                joint_velocity[path_index][i] = qd[i];
+            }
+            for (int i = 0; i < 3; ++i)
+                tool_position[path_index][i] = tool[i];
+
+            printf("[%d] q:%10.3lf %10.3lf %10.3lf %10.3lf %10.3lf %10.3lf |qd:%10.3lf %10.3lf %10.3lf %10.3lf %10.3lf %10.3lf |tool:%10.3lf  %10.3lf  %10.3lf  \n",path_index,joint_position[path_index][0],joint_position[path_index][1],joint_position[path_index][2],joint_position[path_index][3],joint_position[path_index][4],joint_position[path_index][5],joint_velocity[path_index][0],joint_velocity[path_index][1],joint_velocity[path_index][2],joint_velocity[path_index][3],joint_velocity[path_index][4],joint_velocity[path_index][5],tool_position[path_index][0],tool_position[path_index][1],tool_position[path_index][2]);
+            path_index++;
+            sleep(1);
+
+            if(path_index > 1000)
+                break;
+        }
+
+        if (kbhit())
+        {
+            char c = getchar();
+            if (c == 'q' || c == 'Q')
+            {
+                print_info("finish teaching");
+                break;
+            }
+        }
+    }
+
+    resetTermios();
+    print_info("Enter to start running");
+
+    getchar();
+
+//********************************************************************************
+//* Running teached points
     TM5.setJointSpdModeON();
     print_info("joint velocity control mode ON...");
 
     bool run_succeed = true;
-    double SynchronousTime = 5.0;
+    double SynchronousTime = 1.0;
     std::vector<double> TargetPosition(6), TargetVelocity(6), CurrentPosition(6), JointVelocity(6);
 
     RMLPositionInputParameters  *IP_position = new RMLPositionInputParameters(NUMBER_OF_DOFS);
@@ -652,10 +708,10 @@ void ReflexxesStart(TmDriver& TM5)
     q_ref = new double [6];
     T     = new double [16];
 
-    std::vector<double> CartesianPosition_1 = {0.426, -0.335, 0.58, 90 * DEG2RAD, 0, 90 * DEG2RAD};
-    std::vector<double> CartesianPosition_2 = {0.425, -0.122, 0.681, 90 * DEG2RAD, 0, 90 * DEG2RAD};
-    std::vector<double> CartesianPosition_3 = {0.426, 0.092, 0.580, 90 * DEG2RAD, 0, 90 * DEG2RAD};
-    std::vector<double> CartesianPosition_4 = {0.426, -0.122, 0.479, 90 * DEG2RAD, 0, 90 * DEG2RAD};
+    //std::vector<double> CartesianPosition_1 = {0.426, -0.335, 0.58, 90 * DEG2RAD, 0, 90 * DEG2RAD};
+    //std::vector<double> CartesianPosition_2 = {0.425, -0.122, 0.681, 90 * DEG2RAD, 0, 90 * DEG2RAD};
+    //std::vector<double> CartesianPosition_3 = {0.426, 0.092, 0.580, 90 * DEG2RAD, 0, 90 * DEG2RAD};
+    //std::vector<double> CartesianPosition_4 = {0.426, -0.122, 0.479, 90 * DEG2RAD, 0, 90 * DEG2RAD};
 
     //CurrentPosition = {-0.5531,  0.4107,  1.0725,  -1.4832,  2.1239,   0 };
     //std::vector<double>effspd = {0,0.2378,0,0,0,0};
@@ -673,15 +729,29 @@ void ReflexxesStart(TmDriver& TM5)
         IP_velocity->CurrentAccelerationVector->VecData[i] = 0.0;
     }
 
-    TargetPosition = { -0.5531,  0.4107,  1.0725,  -1.4832,  2.1239,  -0.0000};
-    TargetVelocity = {0.0, 0.0, 0.0, 0.0, 0.0};
-    run_succeed = tm_reflexxes::ReflexxesPositionRun(TM5, *IP_position, TargetPosition, TargetVelocity, SynchronousTime);
+    //TargetPosition = { -0.5531,  0.4107,  1.0725,  -1.4832,  2.1239,  -0.0000};
+    //TargetVelocity = {0.0, 0.0, 0.0, 0.0, 0.0};
+    int draw_index = 0;
+    while(run_succeed)
+    {
+        for (int i = 0; i < NUMBER_OF_DOFS; ++i)
+        {
+            TargetPosition[i] = joint_position[draw_index][i];
+            TargetVelocity[i] = joint_velocity[draw_index][i];
+        }
+        run_succeed = tm_reflexxes::ReflexxesPositionRun(TM5, *IP_position, TargetPosition, TargetVelocity, SynchronousTime);
+        draw_index++;
+        if(draw_index == path_index)
+            break;
+    }
+    TM5.setJointSpdModeOFF();
 
     delete IP_position;
     delete IP_velocity;
     delete [] T;
     delete [] q_inv;
     delete [] q_ref;
+//********************************************************************************
 
     /*while(run_succeed)
     {
@@ -763,7 +833,7 @@ int main(int argc, char **argv)
 
 //**************************************************
 //connect to mysql
-
+/*
     char save[100];
     MYSQL *con = mysql_init(NULL);
     if (con == NULL)
@@ -809,7 +879,7 @@ int main(int argc, char **argv)
     }
     mysql_free_result(result);
     mysql_close(con);
-/**/
+*/
     
     while (1)
     {
@@ -870,7 +940,7 @@ int main(int argc, char **argv)
         else if (strncmp(cstr, "jointspdoff", 11) == 0)
         {
             print_info("joint vlocity control mode OFF...");
-            TmRobot.setJointSpdModeoOFF();
+            TmRobot.setJointSpdModeOFF();
         }
         else if (strncmp(cstr, "movjspd", 7) == 0)
         {
@@ -894,7 +964,9 @@ int main(int argc, char **argv)
         }
         else if (strncmp(cstr, "gotest", 6) == 0)
         {
-            TmRobot.setJointSpdModeON();
+            ReflexxesStart(TmRobot);
+
+          /*TmRobot.setJointSpdModeON();
             cout << "joint speed mode on" << endl;
             double SynchronousTime = 2.0;
             double IntervalTime = 0.05;
@@ -1057,9 +1129,9 @@ int main(int argc, char **argv)
             delete [] x;
             delete [] y;
             delete [] z;
-            /**/
-            TmRobot.setJointSpdModeoOFF();
-            cout << "joint speed mode off" << endl;
+
+            //TmRobot.setJointSpdModeOFF();
+            //cout << "joint speed mode off" << endl;*/
         
         }
         else if (strncmp(cstr, "movjabs", 7) == 0)

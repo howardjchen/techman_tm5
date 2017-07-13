@@ -528,7 +528,7 @@ int main(int argc, char **argv)
             ReflexxesStart(TmRobot);
             //ComplianceTeach(TmRobot);
 
-            TmRobot.setJointSpdModeoOFF();
+            TmRobot.setJointSpdModeOFF();
             print_info("joint vlocity control mode OFF...");
         }
         else if (strncmp(cstr, "movjabs", 7) == 0)

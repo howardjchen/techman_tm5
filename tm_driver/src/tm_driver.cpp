@@ -183,12 +183,26 @@ bool TmDriver::setRobotStopRun()
 
 bool TmDriver::setJointSpdModeON()
 {
+    FreeBottonDisable();
     return (interface->sendCommandMsg("nrtservo 0 speedj") > 0);
 }
 
-bool TmDriver::setJointSpdModeoOFF()
+bool TmDriver::setJointSpdModeOFF()
 {
+    FreeBottonEnable();
     return (interface->sendCommandMsg("nrtservo 0 stop") > 0);
+}
+
+bool TmDriver::FreeBottonEnable()
+{
+    print_info("Free-bot is enable");
+    return (interface->sendCommandMsg("cmd50 0 1") > 0);
+}
+
+bool TmDriver::FreeBottonDisable()
+{
+    print_info("Free-bot is disable");
+    return (interface->sendCommandMsg("cmd50 0 0") > 0);
 }
 
 bool TmDriver::setMoveJointSpeedabs(const std::vector<double>& q, double blend)
