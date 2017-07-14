@@ -46,7 +46,7 @@
 #define PITCH 0
 #define CompenX 0.05
 #define CompenY 0.01   //1st:0.15, 2nd:0.10, 3rd:0.05
-#define CompenZ 0.559  //0.559 for 0 degree, 0.581 for 15 degree, 0.585 for 30 degree
+#define CompenZ 0.558  //0.559 for 0 degree, 0.581 for 15 degree, 0.585 for 30 degree
 #define DATABASE "DATA4"
 #define Threshold 0.001
 #define P2P_SPEED 1
@@ -81,7 +81,7 @@ void uploadTrajectory(double JP[1000][6],double JV[1000][6],double TOOL[1000][3]
     }
     for(int l = 0; l < count; l++)
     {
-        upload_datax[l+record]=(TOOL[l][0]-CompenX)*1000.0;
+        upload_datax[l+record]=(TOOL[l][0]-0.02-CompenX)*1000.0;
         upload_datay[l+record]=(TOOL[l][1]-CompenY)*1000.0;
         upload_dataz[l+record]=(TOOL[l][2]-CompenZ)*1000.0;
         printf("tool : [%d] %10.3lf %10.3lf %10.3lf \n",l,TOOL[l][0],TOOL[l][1],TOOL[l][2]);
@@ -1191,7 +1191,8 @@ int main(int argc, char **argv)
             TmRobot.setJointSpdModeOFF();
             print_info("joint speed mode off");
 
-            //ReflexxesStart(TmRobot,x,y,z,record);
+            if(DATABASE == "DATA1")
+                ReflexxesStart(TmRobot,x,y,z,record);
 
             delete [] qh;
             delete [] x;
