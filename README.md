@@ -36,3 +36,39 @@ make
 ```
 - ```/tm_otg``` is a trajectory simulation program that could used to simulate trajectory by printint out joint position and velocity at each time stamp. (The frequency in the library is set to 25ms.)
 
+# Instructioins for pbd
+
+## DATA1: teaching
+1. ```./tm_pbd 192.168.0.10``` and it will start download data from server
+2. ```start``` and you will see the robot connect as follow : 
+```
+ [INFO] TM_COM: Connecting to TM robot... IP:=192.168.0.10, Port:=6188, sockfd:=3
+[DEBUG] TM_COM: Origin Flag of fcntl = 2
+[ INFO] TM_COM: O_NONBLOCK Connect OK
+[ INFO] TM_COM: TM robot is Connected. sockfd:=3
+[ INFO] TM_COM: Recv. thread start running
+```
+3. Go to ```ready``` for stand by position
+4. ```gotest``` for start  executing drawing, in this step tm5 will reach the first home position of drawing.
+5. press```enter```to start drawing.
+6. After drawing complete, you will see ```Enter to start recording```message from robot, so press```enter``` to start teaching and recording.
+7. After recording, preee```q```to upload data and you will see ```[info]uploading...```
+8. After the robot return ```[info]uploading complete``` you could control the robot using command, like ```ready```, ```home```,```quit```.
+
+## DATA4:
+1. ```./tm_pbd 192.168.0.10``` and it will start download data from server
+2. ```start``` and you will see the robot connect as follow : 
+```
+ [INFO] TM_COM: Connecting to TM robot... IP:=192.168.0.10, Port:=6188, sockfd:=3
+[DEBUG] TM_COM: Origin Flag of fcntl = 2
+[ INFO] TM_COM: O_NONBLOCK Connect OK
+[ INFO] TM_COM: TM robot is Connected. sockfd:=3
+[ INFO] TM_COM: Recv. thread start running
+```
+3. Go to ```ready``` for stand by position
+4. ```gotest``` for start  executing drawing, in this step tm5 will reach the first home position of drawing.
+5. press```enter```to start drawing.
+6. After drwaing, you could control the robot using command, like ```ready```, ```home```,```quit```.
+
+### Note
+**1. Be sure you hold the emergency stop botton whenever the robot is moving.**
